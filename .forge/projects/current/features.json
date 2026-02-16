@@ -162,7 +162,7 @@
     {
       "id": "ui-002",
       "name": "대시보드 및 관심목록 UI",
-      "status": "pending",
+      "status": "done",
       "priority": 15,
       "test_file": "tests/frontend/test_dashboard.py",
       "depends_on": [
