@@ -174,7 +174,7 @@
     {
       "id": "ui-003",
       "name": "리포트 조회 및 반응형 디자인",
-      "status": "pending",
+      "status": "done",
       "priority": 16,
       "test_file": "tests/frontend/test_report_views.py",
       "depends_on": [
