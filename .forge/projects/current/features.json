@@ -151,7 +151,7 @@
     {
       "id": "ui-001",
       "name": "프론트엔드 스켈레톤 및 인증 페이지",
-      "status": "pending",
+      "status": "done",
       "priority": 14,
       "test_file": "tests/frontend/test_auth_pages.py",
       "depends_on": [

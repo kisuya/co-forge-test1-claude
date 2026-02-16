@@ -22,7 +22,15 @@ fi
 if [ -d "frontend" ] && [ -f "frontend/package.json" ]; then
   echo "--- Frontend tests ---"
   cd frontend
-  npx vitest run --bail 2>/dev/null || FAIL=1
+  npx vitest run --bail 1 2>/dev/null || FAIL=1
+  cd ..
+fi
+
+# Python-based frontend structure tests (if exists)
+if [ -d "tests/frontend" ]; then
+  echo "--- Frontend structure tests ---"
+  cd backend
+  python -m pytest ../tests/frontend/ -x -q || FAIL=1
   cd ..
 fi
 
