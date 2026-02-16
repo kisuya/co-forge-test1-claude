@@ -127,7 +127,7 @@
     {
       "id": "analysis-002",
       "name": "리포트 생성 파이프라인",
-      "status": "pending",
+      "status": "done",
       "priority": 12,
       "test_file": "tests/backend/test_report_pipeline.py",
       "depends_on": [
