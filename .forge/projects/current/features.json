@@ -116,7 +116,7 @@
     {
       "id": "analysis-001",
       "name": "LLM 분석 엔진",
-      "status": "pending",
+      "status": "done",
       "priority": 11,
       "test_file": "tests/backend/test_service_analysis.py",
       "depends_on": [
