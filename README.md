@@ -47,15 +47,15 @@ co-forge/
 │
 ├── .forge/                            ← 런타임 (scaffold.sh가 생성)
 │   ├── scripts/                          init.sh, checkpoint.sh, orchestrate.sh, ...
-│   ├── templates/                        spec_md, features_json, ...
-│   └── projects/
-│       ├── current/                      활성 프로젝트 (gitignored)
-│       └── {archived}/                   완료된 프로젝트 + 회고록
+│   └── templates/                        spec_md, features_json, ...
 │
 ├── AGENTS.md                          ← AI 에이전트 지침서
 ├── docs/                              ← 제품 문서
 │   ├── prd.md, architecture.md, conventions.md, tech_stack.md
-│   └── backlog.md                        기능 발견 수집함
+│   ├── backlog.md                        기능 발견 수집함
+│   └── projects/
+│       ├── current/                      활성 프로젝트 (gitignored)
+│       └── {archived}/                   완료된 프로젝트 + 회고록
 ├── src/                               ← 제품 코드
 └── tests/                             ← 테스트
 ```
@@ -97,8 +97,8 @@ co-forge/
 | `.claude/skills/` | O | 스킬 원본 |
 | `.agents/skills/` | O | Codex용 symlink → `.claude/skills/` |
 | `.forge/scripts/`, `.forge/templates/` | O | 팀이 동일한 인프라 공유 |
-| `.forge/projects/{archived}/` | O | 프로젝트 이력 보존 |
-| `.forge/projects/current/` | **X** | 작업 중 상태, 개발자마다 다름 |
+| `docs/projects/{archived}/` | O | 프로젝트 이력 보존 |
+| `docs/projects/current/` | **X** | 작업 중 상태, 개발자마다 다름 |
 | `AGENTS.md`, `docs/` | O | 제품 문서 |
 | `src/`, `tests/` | O | 제품 코드 |
 
