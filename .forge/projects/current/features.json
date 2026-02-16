@@ -93,7 +93,7 @@
     {
       "id": "data-002",
       "name": "주가 급변동 감지 로직",
-      "status": "pending",
+      "status": "done",
       "priority": 9,
       "test_file": "tests/backend/test_price_detection.py",
       "depends_on": [
