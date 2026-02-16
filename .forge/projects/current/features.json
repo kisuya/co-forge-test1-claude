@@ -59,7 +59,7 @@
     {
       "id": "stock-001",
       "name": "한국 주식 데이터 시드 및 검색 API",
-      "status": "pending",
+      "status": "done",
       "priority": 6,
       "test_file": "tests/backend/test_api_stocks.py",
       "depends_on": [
