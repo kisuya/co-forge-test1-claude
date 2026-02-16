@@ -26,7 +26,7 @@
     {
       "id": "auth-001",
       "name": "회원가입 API",
-      "status": "pending",
+      "status": "done",
       "priority": 3,
       "test_file": "tests/backend/test_api_auth.py",
       "depends_on": [

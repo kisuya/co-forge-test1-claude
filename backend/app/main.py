@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 
+from app.api.auth import router as auth_router
 from app.config import get_settings
 
 
@@ -15,6 +16,8 @@ def create_app() -> FastAPI:
         version="0.1.0",
         debug=settings.debug,
     )
+
+    app.include_router(auth_router)
 
     @app.get("/health")
     async def health() -> dict[str, str]:
