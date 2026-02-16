@@ -2,6 +2,7 @@ export interface Stock {
   id: string;
   code: string;
   name: string;
+  name_kr: string | null;
   market: string;
   sector: string | null;
 }
@@ -11,6 +12,7 @@ export interface WatchlistItem {
   stock_id: string;
   stock_code: string;
   stock_name: string;
+  stock_market: string;
   threshold: number;
 }
 
@@ -44,4 +46,24 @@ export interface AnalysisCause {
 export interface AnalysisResult {
   summary: string;
   causes: AnalysisCause[];
+}
+
+export interface TrendPoint {
+  day: number;
+  change_pct: number;
+}
+
+export interface SimilarCaseItem {
+  date: string;
+  change_pct: number;
+  volume: number;
+  similarity_score: number;
+  trend_1w: TrendPoint[];
+  trend_1m: TrendPoint[];
+  data_insufficient: boolean;
+}
+
+export interface CasesResponse {
+  cases: SimilarCaseItem[];
+  message?: string;
 }

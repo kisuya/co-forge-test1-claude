@@ -17,6 +17,7 @@ class Stock(Base):
     )
     code: Mapped[str] = mapped_column(String(20), unique=True, nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    name_kr: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
     market: Mapped[str] = mapped_column(String(10), nullable=False, default="KRX")
     sector: Mapped[str | None] = mapped_column(String(100), nullable=True)
 

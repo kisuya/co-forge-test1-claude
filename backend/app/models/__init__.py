@@ -1,3 +1,4 @@
+from app.models.push_subscription import PushSubscription
 from app.models.report import PriceSnapshot, Report, ReportSource
 from app.models.stock import Stock
 from app.models.user import User
@@ -10,4 +11,5 @@ __all__ = [
     "PriceSnapshot",
     "Report",
     "ReportSource",
+    "PushSubscription",
 ]

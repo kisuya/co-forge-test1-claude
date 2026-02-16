@@ -1,4 +1,5 @@
 import axios from "axios";
+import { addToast } from "@/lib/toast";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -20,6 +21,8 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
+    if (axios.isCancel(error)) return Promise.reject(error);
+
     const originalRequest = error.config;
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
@@ -37,10 +40,21 @@ api.interceptors.response.use(
         } catch {
           localStorage.removeItem("access_token");
           localStorage.removeItem("refresh_token");
-          window.location.href = "/login";
+          if (typeof window !== "undefined") {
+            addToast("세션이 만료되었습니다. 다시 로그인해주세요.");
+            window.location.href = "/login";
+          }
+          return Promise.reject(error);
         }
       }
     }
+
+    if (!error.response) {
+      addToast("네트워크 연결을 확인해주세요.");
+    } else if (error.response.status >= 500) {
+      addToast("서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+    }
+
     return Promise.reject(error);
   }
 );

@@ -40,7 +40,7 @@ def get_current_user(
     except jwt.ExpiredSignatureError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token has expired",
+            detail={"detail": "Token expired", "code": "TOKEN_EXPIRED"},
         )
     except jwt.InvalidTokenError:
         raise HTTPException(

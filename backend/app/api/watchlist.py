@@ -31,6 +31,7 @@ class WatchlistItemResponse(BaseModel):
     stock_id: str
     stock_code: str
     stock_name: str
+    stock_market: str
     threshold: float
 
 
@@ -55,6 +56,7 @@ def get_watchlist(
                 stock_id=str(item.stock_id),
                 stock_code=stock.code,
                 stock_name=stock.name,
+                stock_market=stock.market,
                 threshold=item.threshold,
             )
         )
@@ -101,6 +103,7 @@ def add_to_watchlist(
         stock_id=str(item.stock_id),
         stock_code=stock.code,
         stock_name=stock.name,
+        stock_market=stock.market,
         threshold=item.threshold,
     )
 
@@ -158,5 +161,6 @@ def update_threshold(
         stock_id=str(item.stock_id),
         stock_code=stock.code,
         stock_name=stock.name,
+        stock_market=stock.market,
         threshold=item.threshold,
     )

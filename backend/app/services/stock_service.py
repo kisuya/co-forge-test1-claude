@@ -53,16 +53,47 @@ def seed_stocks(db: Session) -> int:
     return count
 
 
-def search_stocks(db: Session, query: str, limit: int = 20) -> list[Stock]:
-    """Search stocks by name or code. Case-insensitive partial match."""
+def seed_us_stocks(db: Session) -> int:
+    """Seed S&P 500 major US stocks. Returns count of new stocks."""
+    from app.data.us_stocks import SAMPLE_US_STOCKS
+
+    count = 0
+    for code, name, name_kr, market, sector in SAMPLE_US_STOCKS:
+        existing = db.execute(
+            select(Stock).where(Stock.code == code)
+        ).scalar_one_or_none()
+        if existing is None:
+            db.add(Stock(
+                code=code, name=name, name_kr=name_kr,
+                market=market, sector=sector,
+            ))
+            count += 1
+    db.commit()
+    return count
+
+
+MARKET_FILTER = {
+    "kr": ["KRX"],
+    "us": ["NYSE", "NASDAQ"],
+    "all": ["KRX", "NYSE", "NASDAQ"],
+}
+
+
+def search_stocks(
+    db: Session, query: str, limit: int = 20, market: str = "kr",
+) -> list[Stock]:
+    """Search stocks by name, name_kr, or code. Case-insensitive partial match."""
     pattern = f"%{query}%"
+    markets = MARKET_FILTER.get(market, MARKET_FILTER["kr"])
     stmt = (
         select(Stock)
         .where(
+            Stock.market.in_(markets),
             or_(
                 Stock.name.ilike(pattern),
+                Stock.name_kr.ilike(pattern),
                 Stock.code.ilike(pattern),
-            )
+            ),
         )
         .limit(limit)
     )

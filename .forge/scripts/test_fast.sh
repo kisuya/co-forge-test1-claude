@@ -34,4 +34,12 @@ if [ -d "tests/frontend" ]; then
   cd ..
 fi
 
+# E2E integration tests (if exists)
+if [ -d "tests/e2e" ]; then
+  echo "--- E2E tests ---"
+  cd backend
+  python -m pytest ../tests/e2e/ -x -q || FAIL=1
+  cd ..
+fi
+
 exit $FAIL

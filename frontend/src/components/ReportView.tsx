@@ -2,6 +2,7 @@
 
 import type { Report } from "@/types";
 import AlertBadge from "./AlertBadge";
+import SimilarCases from "./SimilarCases";
 
 interface ReportViewProps {
   report: Report;
@@ -121,6 +122,10 @@ export default function ReportView({ report }: ReportViewProps) {
           </ul>
         </div>
       )}
+
+      <div className="px-4 sm:px-6 py-4 border-t border-gray-100">
+        <SimilarCases reportId={report.id} />
+      </div>
     </article>
   );
 }

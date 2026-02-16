@@ -23,10 +23,11 @@ class StockResponse(BaseModel):
 @router.get("/search", response_model=list[StockResponse])
 def search(
     q: str = Query(..., min_length=1, description="Search query"),
+    market: str = Query("kr", description="Market filter: kr, us, or all"),
     db: Session = Depends(get_db),
 ) -> Any:
-    """Search stocks by name or code."""
-    stocks = search_stocks(db, q)
+    """Search stocks by name or code, filtered by market."""
+    stocks = search_stocks(db, q, market=market)
     return [
         StockResponse(
             id=str(s.id), code=s.code, name=s.name,

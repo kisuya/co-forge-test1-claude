@@ -53,8 +53,9 @@ export default function ReportsListPage() {
           </div>
         )}
         {reports.length === 0 ? (
-          <div className="text-center py-12 text-gray-500">
-            <p className="text-lg">아직 리포트가 없습니다</p>
+          <div className="text-center py-12 text-gray-500" data-testid="empty-reports">
+            <p className="text-4xl mb-3">&#x1F4CA;</p>
+            <p className="text-lg font-medium text-gray-700">아직 분석 리포트가 없습니다</p>
             <p className="text-sm mt-1">
               관심 종목에 급변동이 발생하면 자동으로 생성됩니다
             </p>

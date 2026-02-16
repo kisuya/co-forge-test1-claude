@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { isLoggedIn, clearTokens } from "@/lib/auth";
 import WatchlistManager from "@/components/WatchlistManager";
+import NotificationPanel from "@/components/NotificationPanel";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -36,6 +37,7 @@ export default function DashboardPage() {
               >
                 리포트
               </button>
+              <NotificationPanel />
               <button
                 onClick={handleLogout}
                 className="text-sm text-gray-500 hover:text-red-600 transition-colors"

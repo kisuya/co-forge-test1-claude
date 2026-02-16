@@ -69,9 +69,10 @@ export default function WatchlistManager({
         </div>
       )}
       {items.length === 0 ? (
-        <div className="text-center py-12 text-gray-500">
-          <p className="text-lg">관심 종목이 없습니다</p>
-          <p className="text-sm mt-1">위에서 종목을 검색하여 추가해보세요</p>
+        <div className="text-center py-12 text-gray-500" data-testid="empty-watchlist">
+          <p className="text-4xl mb-3">&#x1F50D;</p>
+          <p className="text-lg font-medium text-gray-700">종목을 추가해보세요</p>
+          <p className="text-sm mt-1">위 검색창에서 관심 종목을 검색하고 추가할 수 있습니다</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
