@@ -15,7 +15,7 @@
     {
       "id": "db-001",
       "name": "데이터베이스 모델 및 마이그레이션",
-      "status": "pending",
+      "status": "done",
       "priority": 2,
       "test_file": "tests/backend/test_db_models.py",
       "depends_on": [
