@@ -1,5 +1,6 @@
 # Forge: active project state (ephemeral, per-developer)
 docs/projects/current/
+.forge/orchestrate.pid
 
 # Common ignores
 node_modules/
