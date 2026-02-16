@@ -139,7 +139,7 @@
     {
       "id": "report-001",
       "name": "리포트 API 엔드포인트",
-      "status": "pending",
+      "status": "done",
       "priority": 13,
       "test_file": "tests/backend/test_api_reports.py",
       "depends_on": [
