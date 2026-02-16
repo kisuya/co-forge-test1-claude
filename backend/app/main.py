@@ -1,9 +1,11 @@
 from __future__ import annotations
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 
 from app.api.auth import router as auth_router
+from app.api.deps import get_current_user
 from app.config import get_settings
+from app.models.user import User
 
 
 def create_app() -> FastAPI:
@@ -22,6 +24,10 @@ def create_app() -> FastAPI:
     @app.get("/health")
     async def health() -> dict[str, str]:
         return {"status": "ok"}
+
+    @app.get("/api/me")
+    def me(user: User = Depends(get_current_user)) -> dict[str, str]:
+        return {"id": str(user.id), "email": user.email}
 
     return app
 

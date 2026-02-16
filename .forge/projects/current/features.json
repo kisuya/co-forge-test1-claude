@@ -48,7 +48,7 @@
     {
       "id": "auth-003",
       "name": "인증 미들웨어 및 라우트 보호",
-      "status": "pending",
+      "status": "done",
       "priority": 5,
       "test_file": "tests/backend/test_auth_middleware.py",
       "depends_on": [
