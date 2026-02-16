@@ -82,7 +82,7 @@
     {
       "id": "data-001",
       "name": "주가 수집 워커",
-      "status": "pending",
+      "status": "done",
       "priority": 8,
       "test_file": "tests/backend/test_worker_collector.py",
       "depends_on": [
