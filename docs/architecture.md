@@ -42,24 +42,25 @@ oh-my-stock/
 │   │   │   └── report.py
 │   │   ├── api/                   # API 라우터
 │   │   │   ├── auth.py
+│   │   │   ├── deps.py            # 공통 의존성 (get_db, get_current_user)
 │   │   │   ├── stocks.py
 │   │   │   ├── watchlist.py
 │   │   │   └── reports.py
 │   │   ├── services/              # 비즈니스 로직
 │   │   │   ├── stock_service.py
 │   │   │   ├── analysis_service.py
+│   │   │   ├── price_detection.py # 급변동 감지 로직
 │   │   │   └── report_service.py
 │   │   ├── workers/               # Celery 태스크
+│   │   │   ├── celery_app.py      # Celery 앱 설정
 │   │   │   ├── price_collector.py
-│   │   │   ├── news_collector.py
-│   │   │   └── analyzer.py
+│   │   │   └── news_collector.py
 │   │   ├── clients/               # 외부 API 클라이언트
 │   │   │   ├── dart_client.py
 │   │   │   ├── krx_client.py
 │   │   │   └── llm_client.py
 │   │   └── db/
-│   │       ├── database.py
-│   │       └── migrations/
+│   │       └── database.py
 │   ├── requirements.txt
 │   └── pyproject.toml
 ├── frontend/
@@ -70,16 +71,21 @@ oh-my-stock/
 │   │   │   ├── login/
 │   │   │   ├── signup/
 │   │   │   ├── dashboard/
-│   │   │   └── reports/[id]/
+│   │   │   ├── reports/
+│   │   │   ├── reports/[id]/
+│   │   │   └── reports/stock/[stockId]/
 │   │   ├── components/            # React 컴포넌트
-│   │   │   ├── StockCard.tsx
+│   │   │   ├── AlertBadge.tsx
 │   │   │   ├── ReportView.tsx
-│   │   │   ├── WatchlistManager.tsx
-│   │   │   └── AlertBadge.tsx
+│   │   │   ├── StockCard.tsx
+│   │   │   ├── StockSearch.tsx
+│   │   │   └── WatchlistManager.tsx
 │   │   ├── lib/                   # 유틸리티
-│   │   │   ├── api.ts             # API 클라이언트
-│   │   │   └── auth.ts            # 인증 헬퍼
-│   │   └── types/                 # TypeScript 타입
+│   │   │   ├── api.ts             # API 클라이언트 (axios + 인터셉터)
+│   │   │   ├── auth.ts            # 인증 헬퍼
+│   │   │   └── queries.ts         # API 쿼리 함수 (stocks, watchlist, reports)
+│   │   └── types/
+│   │       └── index.ts           # TypeScript 타입 정의
 │   ├── package.json
 │   └── tsconfig.json
 ├── tests/

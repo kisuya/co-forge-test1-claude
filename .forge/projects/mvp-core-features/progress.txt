@@ -1,0 +1,40 @@
+Project: project-001 - MVP 기반 구축
+Started: 2026-02-16
+Status: Not started
+Agent: (to be assigned)
+
+Features: 16 pending
+Previous: (첫 번째 프로젝트)
+
+No progress yet. Run init.sh to begin.
+
+---
+Session: 0
+0 (2026-02-16)
+Features completed: none
+Features remaining: 16 pending, 0 blocked
+Test status: all pass
+Recent commits:
+f8317a4 Add project harness and scope Project 1 (MVP 기반 구축)
+363ce9c Initial commit
+
+---
+Session: 2 (2026-02-16)
+Features completed: none
+Features remaining: 16 pending, 0 blocked
+Test status: all pass
+Recent commits:
+f8317a4 Add project harness and scope Project 1 (MVP 기반 구축)
+363ce9c Initial commit
+
+---
+Session: 3 (2026-02-16)
+Features completed: infra-001, db-001, auth-001, auth-002, auth-003, stock-001, watch-001, data-001, data-002, data-003, analysis-001, analysis-002, report-001, ui-001, ui-002, ui-003
+Features remaining: 0 pending, 0 blocked
+Test status: all pass
+Recent commits:
+553d9f4 [ui-003] Add report views and responsive design
+f3439d7 [ui-002] Add dashboard and watchlist UI
+5434e9d [ui-001] Add frontend skeleton and auth pages
+2378801 [report-001] Add report API endpoints
+a224eea [analysis-002] Add report generation pipeline

@@ -10,3 +10,10 @@ __pycache__/
 target/
 dist/
 build/
+
+# Next.js
+.next/
+next-env.d.ts
+
+# Stray .forge in subdirectories
+backend/.forge/
