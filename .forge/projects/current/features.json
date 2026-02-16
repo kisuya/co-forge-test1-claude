@@ -105,7 +105,7 @@
     {
       "id": "data-003",
       "name": "뉴스 및 공시 수집기",
-      "status": "pending",
+      "status": "done",
       "priority": 10,
       "test_file": "tests/backend/test_news_collector.py",
       "depends_on": [
