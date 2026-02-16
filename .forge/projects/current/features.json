@@ -70,7 +70,7 @@
     {
       "id": "watch-001",
       "name": "관심목록 CRUD API",
-      "status": "pending",
+      "status": "done",
       "priority": 7,
       "test_file": "tests/backend/test_api_watchlist.py",
       "depends_on": [
