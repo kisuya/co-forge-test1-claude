@@ -1,15 +1,17 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { isLoggedIn, clearTokens } from "@/lib/auth";
 import WatchlistManager from "@/components/WatchlistManager";
 import NotificationPanel from "@/components/NotificationPanel";
 import OnboardingOverlay from "@/components/OnboardingOverlay";
-import BriefingCard from "@/components/BriefingCard";
-import CalendarWidget from "@/components/CalendarWidget";
-import NewsWidget from "@/components/NewsWidget";
-import TrendingWidget from "@/components/TrendingWidget";
+
+const BriefingCard = dynamic(() => import("@/components/BriefingCard"), { ssr: false });
+const CalendarWidget = dynamic(() => import("@/components/CalendarWidget"), { ssr: false });
+const NewsWidget = dynamic(() => import("@/components/NewsWidget"), { ssr: false });
+const TrendingWidget = dynamic(() => import("@/components/TrendingWidget"), { ssr: false });
 
 export default function DashboardPage() {
   const router = useRouter();
