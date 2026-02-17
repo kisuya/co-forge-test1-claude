@@ -56,6 +56,8 @@ export default function NotificationBell() {
         onClick={() => setOpen(!open)}
         className="relative w-8 h-8 flex items-center justify-center text-gray-600 hover:text-gray-900"
         aria-label="알림"
+        aria-haspopup="true"
+        aria-expanded={open}
       >
         <span className="text-xl">🔔</span>
         {hasUnread && (

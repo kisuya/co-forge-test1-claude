@@ -152,6 +152,8 @@ export default function NotificationPanel() {
           <div
             data-testid="notification-panel"
             className="fixed right-0 top-0 h-full w-80 bg-white shadow-xl z-50 overflow-y-auto animate-slide-left"
+            role="dialog"
+            aria-label="알림 설정 패널"
           >
             <div className="p-4 border-b border-gray-200">
               <div className="flex items-center justify-between">
@@ -160,6 +162,7 @@ export default function NotificationPanel() {
                   data-testid="notification-close"
                   onClick={() => setOpen(false)}
                   className="text-gray-400 hover:text-gray-600"
+                  aria-label="알림 패널 닫기"
                 >
                   &#x2715;
                 </button>
@@ -185,6 +188,9 @@ export default function NotificationPanel() {
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                     subscribed ? "bg-blue-600" : "bg-gray-300"
                   } ${loading ? "opacity-50 cursor-not-allowed" : ""}`}
+                  role="switch"
+                  aria-checked={subscribed}
+                  aria-label="전체 알림 토글"
                 >
                   <span
                     className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${

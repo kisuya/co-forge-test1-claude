@@ -294,6 +294,7 @@ export default function StockCard({
                       disabled={saving || threshold <= MIN_THRESHOLD}
                       className="w-8 h-8 flex items-center justify-center rounded-full bg-white border border-gray-300 text-gray-600 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
                       data-testid="threshold-decrease"
+                      aria-label="임계값 감소"
                     >
                       −
                     </button>
@@ -305,6 +306,7 @@ export default function StockCard({
                       disabled={saving || threshold >= MAX_THRESHOLD}
                       className="w-8 h-8 flex items-center justify-center rounded-full bg-white border border-gray-300 text-gray-600 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
                       data-testid="threshold-increase"
+                      aria-label="임계값 증가"
                     >
                       +
                     </button>
@@ -372,6 +374,7 @@ export default function StockCard({
                       onClick={() => handleThresholdChange(threshold - STEP)}
                       disabled={saving || threshold <= MIN_THRESHOLD}
                       className="w-10 h-10 flex items-center justify-center rounded-full bg-white border border-gray-300 text-gray-600 hover:bg-gray-100 disabled:opacity-50 min-h-[48px]"
+                      aria-label="임계값 감소"
                     >
                       −
                     </button>
@@ -382,6 +385,7 @@ export default function StockCard({
                       onClick={() => handleThresholdChange(threshold + STEP)}
                       disabled={saving || threshold >= MAX_THRESHOLD}
                       className="w-10 h-10 flex items-center justify-center rounded-full bg-white border border-gray-300 text-gray-600 hover:bg-gray-100 disabled:opacity-50 min-h-[48px]"
+                      aria-label="임계값 증가"
                     >
                       +
                     </button>
@@ -437,6 +441,7 @@ export default function StockCard({
             onClick={(e) => e.stopPropagation()}
             data-testid="confirm-delete-dialog"
             role="dialog"
+            aria-label="종목 제거 확인"
           >
             <h4 className="text-lg font-semibold text-gray-900 mb-2">종목 제거</h4>
             <p className="text-sm text-gray-600 mb-4">

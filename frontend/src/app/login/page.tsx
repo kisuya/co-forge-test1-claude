@@ -23,6 +23,9 @@ export default function LoginPage() {
     try {
       const resp = await authApi.login({ email, password });
       setTokens(resp.data.access_token, resp.data.refresh_token);
+      if (resp.data.is_first_login) {
+        localStorage.setItem("onboarding_pending", "true");
+      }
       router.push("/dashboard");
     } catch {
       setError("이메일 또는 비밀번호가 올바르지 않습니다");
@@ -97,9 +100,11 @@ export default function LoginPage() {
                 height: "48px",
               }}
               placeholder="you@example.com"
+              aria-describedby={fieldErrors.email ? "login-email-error" : undefined}
             />
             {fieldErrors.email && (
               <p
+                id="login-email-error"
                 data-testid="field-error-email"
                 className="mt-1 text-xs text-red-500"
               >
@@ -133,9 +138,11 @@ export default function LoginPage() {
                 padding: "12px",
                 height: "48px",
               }}
+              aria-describedby={fieldErrors.password ? "login-password-error" : undefined}
             />
             {fieldErrors.password && (
               <p
+                id="login-password-error"
                 data-testid="field-error-password"
                 className="mt-1 text-xs text-red-500"
               >

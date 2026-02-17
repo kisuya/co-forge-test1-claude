@@ -95,9 +95,11 @@ export default function SignupPage() {
                 height: "48px",
               }}
               placeholder="you@example.com"
+              aria-describedby={fieldErrors.email ? "signup-email-error" : undefined}
             />
             {fieldErrors.email && (
               <p
+                id="signup-email-error"
                 data-testid="field-error-email"
                 className="mt-1 text-xs text-red-500"
               >
@@ -132,9 +134,11 @@ export default function SignupPage() {
                 padding: "12px",
                 height: "48px",
               }}
+              aria-describedby={fieldErrors.password ? "signup-password-error" : undefined}
             />
             {fieldErrors.password && (
               <p
+                id="signup-password-error"
                 data-testid="field-error-password"
                 className="mt-1 text-xs text-red-500"
               >

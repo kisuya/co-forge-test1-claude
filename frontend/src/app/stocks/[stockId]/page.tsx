@@ -6,6 +6,7 @@ import { isLoggedIn } from "@/lib/auth";
 import { stocksApi } from "@/lib/queries";
 import type { StockDetail, StockHistoryResponse } from "@/types";
 import EventTimeline from "@/components/EventTimeline";
+import DiscussionSection from "@/components/DiscussionSection";
 
 const MARKET_BADGE: Record<string, string> = {
   KRX: "bg-blue-100 text-blue-700",
@@ -60,6 +61,8 @@ export default function StockDetailPage() {
         ]);
         setStock(detailResp.data);
         setHistory(historyResp.data);
+        const name = detailResp.data.name || "종목";
+        document.title = `${name} 이벤트 히스토리 | oh-my-stock`;
       } catch (err: unknown) {
         const axiosErr = err as { response?: { status?: number } };
         if (axiosErr?.response?.status === 404) {
@@ -67,6 +70,7 @@ export default function StockDetailPage() {
         } else {
           setError("종목 정보를 불러올 수 없습니다.");
         }
+        document.title = "oh-my-stock";
       } finally {
         setLoading(false);
       }
@@ -183,7 +187,8 @@ export default function StockDetailPage() {
           <EventTimeline history={history} stockId={params.stockId} />
         )}
 
-        {/* Discussion section placeholder - implemented in community-004 */}
+        {/* Discussion section - community-004 */}
+        <DiscussionSection stockId={params.stockId} />
       </main>
     </div>
   );

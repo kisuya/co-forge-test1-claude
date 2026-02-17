@@ -57,9 +57,11 @@ export default function PasswordChangeForm() {
         data-testid="password-toggle"
         onClick={() => setOpen(!open)}
         className="w-full px-6 py-4 flex items-center justify-between text-left"
+        aria-expanded={open}
+        aria-label="비밀번호 변경 섹션 토글"
       >
         <span className="font-medium text-gray-900">비밀번호 변경</span>
-        <span className="text-gray-400">{open ? "▲" : "▼"}</span>
+        <span className="text-gray-400" aria-hidden="true">{open ? "▲" : "▼"}</span>
       </button>
       {open && (
         <form
@@ -77,12 +79,14 @@ export default function PasswordChangeForm() {
                 onChange={(e) => setCurrentPassword(e.target.value)}
                 className="w-full border border-gray-300 rounded-md px-3 py-2 pr-10 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                 required
+                aria-describedby={error ? "password-error-msg" : undefined}
               />
               <button
                 type="button"
                 data-testid="toggle-current-visibility"
                 onClick={() => setShowCurrent(!showCurrent)}
                 className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400"
+                aria-label="현재 비밀번호 표시 토글"
               >
                 👁
               </button>
@@ -104,6 +108,7 @@ export default function PasswordChangeForm() {
                 data-testid="toggle-new-visibility"
                 onClick={() => setShowNew(!showNew)}
                 className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400"
+                aria-label="새 비밀번호 표시 토글"
               >
                 👁
               </button>
@@ -119,24 +124,26 @@ export default function PasswordChangeForm() {
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 className="w-full border border-gray-300 rounded-md px-3 py-2 pr-10 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                 required
+                aria-describedby={mismatch ? "password-mismatch-msg" : undefined}
               />
               <button
                 type="button"
                 data-testid="toggle-confirm-visibility"
                 onClick={() => setShowConfirm(!showConfirm)}
                 className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400"
+                aria-label="비밀번호 확인 표시 토글"
               >
                 👁
               </button>
             </div>
             {mismatch && (
-              <p data-testid="password-mismatch" className="text-red-500 text-xs mt-1">
+              <p id="password-mismatch-msg" data-testid="password-mismatch" className="text-red-500 text-xs mt-1">
                 비밀번호가 일치하지 않습니다
               </p>
             )}
           </div>
           {error && (
-            <p data-testid="password-error" className="text-red-500 text-sm">
+            <p id="password-error-msg" data-testid="password-error" className="text-red-500 text-sm">
               {error}
             </p>
           )}

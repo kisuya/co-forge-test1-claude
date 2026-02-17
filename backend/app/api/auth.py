@@ -37,6 +37,7 @@ class TokenResponse(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
+    is_first_login: bool = False
 
 
 class RefreshRequest(BaseModel):
@@ -122,13 +123,22 @@ def login(body: LoginRequest, db: Session = Depends(get_db)) -> Any:
     if user is None or not verify_password(body.password, user.password_hash):
         raise_error(401, "Invalid email or password")
 
+    is_first_login = user.last_login_at is None
+
+    user.last_login_at = datetime.now(timezone.utc)
+    db.commit()
+
     settings = get_settings()
     access_token = create_access_token(
         str(user.id), settings.jwt_secret_key, settings.jwt_expiry_hours
     )
     refresh_token = create_refresh_token(str(user.id), settings.jwt_secret_key)
 
-    return TokenResponse(access_token=access_token, refresh_token=refresh_token)
+    return TokenResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        is_first_login=is_first_login,
+    )
 
 
 @router.post("/refresh", response_model=TokenResponse)

@@ -45,7 +45,10 @@ export default function SharedReportPage() {
     if (!params.token) return;
     shareApi
       .getShared(params.token)
-      .then((resp) => setData(resp.data))
+      .then((resp) => {
+        setData(resp.data);
+        document.title = `${resp.data.stock_name} 변동 분석 공유 | oh-my-stock`;
+      })
       .catch((err: unknown) => {
         const axiosErr = err as { response?: { status?: number } };
         if (axiosErr?.response?.status === 410) {

@@ -1,5 +1,5 @@
 import api from "./api";
-import type { Stock, WatchlistItem, Report, CasesResponse, StockDetail, StockHistoryResponse, ShareResponse, SharedReportResponse, ProfileResponse, ProfileReportItem, ProfileDiscussionItem, PaginatedResponse } from "@/types";
+import type { Stock, WatchlistItem, Report, CasesResponse, StockDetail, StockHistoryResponse, ShareResponse, SharedReportResponse, ProfileResponse, ProfileReportItem, ProfileDiscussionItem, PaginatedResponse, DiscussionListResponse, DiscussionItem, CommentItem } from "@/types";
 
 export const stocksApi = {
   search: (q: string, market?: string, signal?: AbortSignal) =>
@@ -56,6 +56,25 @@ export const shareApi = {
     api.post<ShareResponse>(`/api/reports/${reportId}/share`),
   getShared: (token: string) =>
     api.get<SharedReportResponse>(`/api/shared/${token}`),
+};
+
+export const discussionsApi = {
+  list: (stockId: string, page: number = 1, perPage: number = 20) =>
+    api.get<DiscussionListResponse>(`/api/stocks/${stockId}/discussions`, {
+      params: { page, per_page: perPage },
+    }),
+  create: (stockId: string, content: string) =>
+    api.post<DiscussionItem>(`/api/stocks/${stockId}/discussions`, { content }),
+  update: (discussionId: string, content: string) =>
+    api.put<DiscussionItem>(`/api/discussions/${discussionId}`, { content }),
+  delete: (discussionId: string) =>
+    api.delete(`/api/discussions/${discussionId}`),
+  listComments: (discussionId: string) =>
+    api.get<CommentItem[]>(`/api/discussions/${discussionId}/comments`),
+  createComment: (discussionId: string, content: string) =>
+    api.post<CommentItem>(`/api/discussions/${discussionId}/comments`, { content }),
+  deleteComment: (commentId: string) =>
+    api.delete(`/api/comments/${commentId}`),
 };
 
 export const profileApi = {

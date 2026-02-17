@@ -1,19 +1,35 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { isLoggedIn, clearTokens } from "@/lib/auth";
 import WatchlistManager from "@/components/WatchlistManager";
 import NotificationPanel from "@/components/NotificationPanel";
+import OnboardingOverlay from "@/components/OnboardingOverlay";
 
 export default function DashboardPage() {
   const router = useRouter();
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   useEffect(() => {
     if (!isLoggedIn()) {
       router.replace("/login");
     }
+    document.title = "내 관심 종목 | oh-my-stock";
   }, [router]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const pending = localStorage.getItem("onboarding_pending");
+      if (pending === "true") {
+        setShowOnboarding(true);
+      }
+    }
+  }, []);
+
+  const handleOnboardingComplete = useCallback(() => {
+    setShowOnboarding(false);
+  }, []);
 
   const handleStockClick = (stockId: string) => {
     router.push(`/reports/stock/${stockId}`);
@@ -26,6 +42,9 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {showOnboarding && (
+        <OnboardingOverlay onComplete={handleOnboardingComplete} />
+      )}
       <header className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">

@@ -83,6 +83,12 @@ h1, h2, h3, h4, h5, h6 {
   line-height: var(--leading-heading);
 }
 
+/* ===== Accessibility (ui-030) ===== */
+*:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
 @keyframes slide-down {
   from {
     opacity: 0;

@@ -66,6 +66,7 @@ export default function GlobalHeader() {
           <nav
             data-testid="desktop-nav"
             className="hidden md:flex items-center gap-6"
+            aria-label="메인 내비게이션"
           >
             {navLinks.map((link) => {
               const isActive = pathname === link.href;

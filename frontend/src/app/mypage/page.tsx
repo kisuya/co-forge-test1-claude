@@ -21,6 +21,7 @@ export default function MyPage() {
       router.replace("/login");
       return;
     }
+    document.title = "마이페이지 | oh-my-stock";
     fetchProfile();
   }, [router]);
 

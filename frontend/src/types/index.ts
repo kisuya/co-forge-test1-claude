@@ -177,3 +177,33 @@ export interface PaginatedResponse<T> {
   total: number;
   has_more: boolean;
 }
+
+export interface DiscussionItem {
+  id: string;
+  content: string;
+  author_name: string;
+  comment_count: number;
+  created_at: string;
+  updated_at: string | null;
+  is_mine: boolean;
+}
+
+export interface DiscussionPagination {
+  page: number;
+  per_page: number;
+  total: number;
+  has_more: boolean;
+}
+
+export interface DiscussionListResponse {
+  discussions: DiscussionItem[];
+  pagination: DiscussionPagination;
+}
+
+export interface CommentItem {
+  id: string;
+  content: string;
+  author_name: string;
+  created_at: string;
+  is_mine: boolean;
+}

@@ -55,6 +55,7 @@ export default function RecentSearches({
               }}
               className="text-gray-400 hover:text-gray-600 text-sm ml-2"
               data-testid="remove-recent-btn"
+              aria-label="최근 검색어 삭제"
             >
               ✕
             </button>

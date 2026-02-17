@@ -26,8 +26,15 @@ export default function ReportDetailPage() {
     if (!params.id) return;
     reportsApi
       .getById(params.id)
-      .then((resp) => setReport(resp.data))
-      .catch(() => setError("리포트를 불러오지 못했습니다."))
+      .then((resp) => {
+        setReport(resp.data);
+        const name = resp.data.stock_name || "리포트";
+        document.title = `${name} 변동 분석 | oh-my-stock`;
+      })
+      .catch(() => {
+        setError("리포트를 불러오지 못했습니다.");
+        document.title = "oh-my-stock";
+      })
       .finally(() => setLoading(false));
   }, [router, params.id]);
 

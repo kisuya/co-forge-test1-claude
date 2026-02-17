@@ -77,7 +77,7 @@ export default function ActivityHistory() {
     <div data-testid="activity-history" className="bg-white rounded-lg shadow-sm mb-6">
       <div className="px-6 pt-4">
         <h2 className="text-lg font-bold text-gray-900 mb-3">최근 활동</h2>
-        <div data-testid="activity-tabs" className="flex border-b border-gray-200">
+        <div data-testid="activity-tabs" className="flex border-b border-gray-200" role="tablist" aria-label="활동 내역 탭">
           <button
             data-testid="tab-reports"
             onClick={() => setActiveTab("reports")}
@@ -86,6 +86,9 @@ export default function ActivityHistory() {
                 ? "border-blue-600 text-blue-600"
                 : "border-transparent text-gray-500 hover:text-gray-700"
             }`}
+            role="tab"
+            aria-selected={activeTab === "reports"}
+            aria-label="리포트 탭"
           >
             리포트
           </button>
@@ -97,6 +100,9 @@ export default function ActivityHistory() {
                 ? "border-blue-600 text-blue-600"
                 : "border-transparent text-gray-500 hover:text-gray-700"
             }`}
+            role="tab"
+            aria-selected={activeTab === "discussions"}
+            aria-label="토론 탭"
           >
             토론
           </button>
