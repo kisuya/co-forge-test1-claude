@@ -232,7 +232,7 @@ async def _signup_login(c: AsyncClient) -> str:
 
 @pytest.mark.asyncio
 async def test_api_cases_no_report() -> None:
-    """GET /api/cases/{missing_id} should return empty with message."""
+    """GET /api/cases/{missing_id} should return 404 (quality-002)."""
     create_tables(TEST_DB_URL)
     try:
         app = _make_app()
@@ -243,10 +243,7 @@ async def test_api_cases_no_report() -> None:
 
             fake_id = str(uuid.uuid4())
             resp = await c.get(f"/api/cases/{fake_id}", headers=headers)
-            assert resp.status_code == 200
-            data = resp.json()
-            assert data["cases"] == []
-            assert "유사한" in data["message"]
+            assert resp.status_code == 404
     finally:
         engine = get_engine(TEST_DB_URL)
         Base.metadata.drop_all(bind=engine)

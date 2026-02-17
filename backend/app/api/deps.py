@@ -4,12 +4,13 @@ import uuid
 from typing import Generator
 
 import jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
+from app.core.exceptions import raise_error
 from app.db.database import get_session_factory
 from app.models.user import User
 
@@ -38,37 +39,22 @@ def get_current_user(
     try:
         payload = jwt.decode(token, settings.jwt_secret_key, algorithms=["HS256"])
     except jwt.ExpiredSignatureError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail={"detail": "Token expired", "code": "TOKEN_EXPIRED"},
-        )
+        raise_error(401, "Token expired")
     except jwt.InvalidTokenError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token",
-        )
+        raise_error(401, "Invalid token")
 
     if payload.get("type") != "access":
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token type",
-        )
+        raise_error(401, "Invalid token type")
 
     user_id = payload.get("sub")
     if user_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token payload",
-        )
+        raise_error(401, "Invalid token payload")
 
     user = db.execute(
         select(User).where(User.id == uuid.UUID(user_id))
     ).scalar_one_or_none()
 
     if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found",
-        )
+        raise_error(401, "User not found")
 
     return user

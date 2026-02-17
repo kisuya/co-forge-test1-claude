@@ -3,12 +3,13 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db
+from app.core.exceptions import raise_error
 from app.models.report import Report, ReportSource
 from app.models.stock import Stock
 from app.models.user import User
@@ -97,12 +98,17 @@ def get_report(
     db: Session = Depends(get_db),
 ) -> Any:
     """Get a single report by ID."""
+    try:
+        parsed_id = uuid.UUID(report_id)
+    except (ValueError, AttributeError):
+        raise_error(422, "Invalid report ID format")
+
     report = db.execute(
-        select(Report).where(Report.id == uuid.UUID(report_id))
+        select(Report).where(Report.id == parsed_id)
     ).scalar_one_or_none()
 
     if report is None:
-        raise HTTPException(status_code=404, detail="Report not found")
+        raise_error(404, "Report not found")
 
     stock = db.execute(select(Stock).where(Stock.id == report.stock_id)).scalar_one()
     sources = db.execute(

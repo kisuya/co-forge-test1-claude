@@ -4,12 +4,13 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db
+from app.core.exceptions import raise_error
 from app.models.report import Report
 from app.models.user import User
 from app.services.similar_case_service import get_cases_with_trends
@@ -44,15 +45,17 @@ def get_cases(
     db: Session = Depends(get_db),
 ) -> Any:
     """Get similar historical cases for a report."""
+    try:
+        parsed_id = uuid.UUID(report_id)
+    except (ValueError, AttributeError):
+        raise_error(422, "Invalid report ID format")
+
     report = db.execute(
-        select(Report).where(Report.id == uuid.UUID(report_id))
+        select(Report).where(Report.id == parsed_id)
     ).scalar_one_or_none()
 
     if report is None:
-        return CasesResponse(
-            cases=[],
-            message="유사한 과거 사례를 찾지 못했습니다",
-        )
+        raise_error(404, "Report not found")
 
     cases = get_cases_with_trends(
         db,

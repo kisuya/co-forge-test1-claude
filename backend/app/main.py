@@ -1,14 +1,19 @@
 from __future__ import annotations
 
 import logging
+import traceback
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager, contextmanager
 from typing import Generator
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.core.exceptions import error_detail
 from app.api.auth import router as auth_router
 from app.api.cases import router as cases_router
 from app.api.deps import get_current_user
@@ -85,6 +90,58 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    def _cors_headers(request: Request) -> dict[str, str]:
+        """Build CORS headers for error responses based on request origin."""
+        origin = request.headers.get("origin", "")
+        if origin in ALLOWED_ORIGINS:
+            return {
+                "Access-Control-Allow-Origin": origin,
+                "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+                "Access-Control-Allow-Headers": "*",
+                "Access-Control-Allow-Credentials": "true",
+            }
+        return {}
+
+    @app.exception_handler(StarletteHTTPException)
+    async def http_exception_handler(
+        request: Request, exc: StarletteHTTPException
+    ) -> JSONResponse:
+        detail = exc.detail
+        if isinstance(detail, dict) and "error" in detail and "status_code" in detail:
+            content = detail
+        elif isinstance(detail, str):
+            content = error_detail(exc.status_code, detail)
+        else:
+            content = error_detail(exc.status_code, str(detail))
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=content,
+            headers=_cors_headers(request),
+        )
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_exception_handler(
+        request: Request, exc: RequestValidationError
+    ) -> JSONResponse:
+        content = error_detail(422, "Validation error")
+        content["details"] = exc.errors()
+        return JSONResponse(
+            status_code=422,
+            content=content,
+            headers=_cors_headers(request),
+        )
+
+    @app.exception_handler(Exception)
+    async def generic_exception_handler(
+        request: Request, exc: Exception
+    ) -> JSONResponse:
+        logger.error("Unhandled exception: %s\n%s", exc, traceback.format_exc())
+        return JSONResponse(
+            status_code=500,
+            content=error_detail(500, "Internal server error"),
+            headers=_cors_headers(request),
+        )
 
     app.include_router(auth_router)
     app.include_router(stocks_router)

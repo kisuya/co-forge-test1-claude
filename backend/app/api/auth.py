@@ -5,12 +5,13 @@ from typing import Any
 
 import bcrypt
 import jwt
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
+from app.core.exceptions import raise_error
 from app.db.database import get_session_factory
 from app.models.user import User
 
@@ -98,10 +99,7 @@ def signup(body: SignupRequest, db: Session = Depends(get_db)) -> Any:
     ).scalar_one_or_none()
 
     if existing is not None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Email already registered",
-        )
+        raise_error(409, "Email already registered")
 
     user = User(
         email=body.email,
@@ -122,10 +120,7 @@ def login(body: LoginRequest, db: Session = Depends(get_db)) -> Any:
     ).scalar_one_or_none()
 
     if user is None or not verify_password(body.password, user.password_hash):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password",
-        )
+        raise_error(401, "Invalid email or password")
 
     settings = get_settings()
     access_token = create_access_token(
@@ -145,21 +140,12 @@ def refresh(body: RefreshRequest) -> Any:
             body.refresh_token, settings.jwt_secret_key, algorithms=["HS256"]
         )
     except jwt.ExpiredSignatureError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Refresh token expired",
-        )
+        raise_error(401, "Refresh token expired")
     except jwt.InvalidTokenError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid refresh token",
-        )
+        raise_error(401, "Invalid refresh token")
 
     if payload.get("type") != "refresh":
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token type",
-        )
+        raise_error(401, "Invalid token type")
 
     user_id = payload["sub"]
     access_token = create_access_token(

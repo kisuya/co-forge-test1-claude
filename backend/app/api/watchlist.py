@@ -3,12 +3,13 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, Response, status
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db
+from app.core.exceptions import raise_error
 from app.models.stock import Stock
 from app.models.user import User
 from app.models.watchlist import Watchlist
@@ -76,7 +77,7 @@ def add_to_watchlist(
         select(Stock).where(Stock.id == stock_uuid)
     ).scalar_one_or_none()
     if stock is None:
-        raise HTTPException(status_code=404, detail="Stock not found")
+        raise_error(404, "Stock not found")
 
     existing = db.execute(
         select(Watchlist).where(
@@ -85,13 +86,13 @@ def add_to_watchlist(
         )
     ).scalar_one_or_none()
     if existing is not None:
-        raise HTTPException(status_code=409, detail="Stock already in watchlist")
+        raise_error(409, "Stock already in watchlist")
 
     count = db.execute(
         select(Watchlist).where(Watchlist.user_id == user.id)
     ).scalars().all()
     if len(count) >= MAX_WATCHLIST_SIZE:
-        raise HTTPException(status_code=400, detail="Watchlist limit reached (50)")
+        raise_error(400, "Watchlist limit reached (50)")
 
     item = Watchlist(user_id=user.id, stock_id=stock_uuid)
     db.add(item)
@@ -123,7 +124,7 @@ def remove_from_watchlist(
     ).scalar_one_or_none()
 
     if item is None:
-        raise HTTPException(status_code=404, detail="Watchlist item not found")
+        raise_error(404, "Watchlist item not found")
 
     db.delete(item)
     db.commit()
@@ -146,7 +147,7 @@ def update_threshold(
     ).scalar_one_or_none()
 
     if item is None:
-        raise HTTPException(status_code=404, detail="Watchlist item not found")
+        raise_error(404, "Watchlist item not found")
 
     item.threshold = body.threshold
     db.commit()

@@ -1,11 +1,12 @@
 """Push subscription API endpoints."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db
+from app.core.exceptions import raise_error
 from app.models.push_subscription import PushSubscription
 from app.models.user import User
 
@@ -87,10 +88,7 @@ def unsubscribe(
     ).first()
 
     if not sub:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Subscription not found",
-        )
+        raise_error(404, "Subscription not found")
 
     sub.is_active = False
     db.commit()
