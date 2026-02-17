@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db
@@ -14,9 +14,9 @@ router = APIRouter(prefix="/api/push", tags=["push"])
 
 
 class SubscribeRequest(BaseModel):
-    endpoint: str
-    p256dh: str
-    auth: str
+    endpoint: str = Field(max_length=2000)
+    p256dh: str = Field(max_length=500)
+    auth: str = Field(max_length=500)
 
 
 class SubscribeResponse(BaseModel):
@@ -31,7 +31,7 @@ class StatusResponse(BaseModel):
 
 
 class UnsubscribeRequest(BaseModel):
-    endpoint: str
+    endpoint: str = Field(max_length=2000)
 
 
 @router.post("/subscribe", response_model=SubscribeResponse, status_code=status.HTTP_201_CREATED)

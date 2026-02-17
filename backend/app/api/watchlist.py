@@ -4,7 +4,7 @@ import uuid
 from typing import Any
 
 from fastapi import APIRouter, Depends, Response, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -24,7 +24,7 @@ class WatchlistAddRequest(BaseModel):
 
 
 class WatchlistUpdateRequest(BaseModel):
-    threshold: float
+    threshold: float = Field(ge=1.0, le=10.0)
 
 
 class WatchlistItemResponse(BaseModel):

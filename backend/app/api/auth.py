@@ -19,8 +19,8 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
 class SignupRequest(BaseModel):
-    email: str
-    password: str
+    email: EmailStr
+    password: str = Field(min_length=1, max_length=100)
 
 
 class SignupResponse(BaseModel):
@@ -29,8 +29,8 @@ class SignupResponse(BaseModel):
 
 
 class LoginRequest(BaseModel):
-    email: str
-    password: str
+    email: EmailStr
+    password: str = Field(min_length=1, max_length=100)
 
 
 class TokenResponse(BaseModel):
