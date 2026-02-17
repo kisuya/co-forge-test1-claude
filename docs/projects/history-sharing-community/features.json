@@ -1,0 +1,813 @@
+{
+  "project": "project-003",
+  "goal": "서비스 완성 — 품질 보강, 이벤트 히스토리, 리포트 공유, 커뮤니티, 데일리 브리핑, 뉴스 피드, 트렌딩, 마켓 캘린더, 프로덕션 레이아웃/SEO/PWA까지 전 기능 구현.",
+  "agent": "",
+  "features": [
+    {
+      "id": "quality-001",
+      "name": "CORS 에러 응답 헤더 보장",
+      "description": "FastAPI에서 4xx/5xx 에러 응답에도 CORS 헤더가 포함되도록 수정. 현재 CORSMiddleware는 정상 응답에만 헤더를 추가하고, exception handler 경로에서는 누락됨. (1) app에 커스텀 exception handler 등록: HTTPException, RequestValidationError, 500 catch-all 각각에서 JSONResponse 반환 시 Access-Control-Allow-Origin='*', Access-Control-Allow-Methods, Access-Control-Allow-Headers 헤더 명시. (2) OPTIONS preflight도 200 + CORS 헤더 반환 확인. 허용 오리진: 개발 localhost:3000, 프로덕션은 환경변수. 허용 메서드: GET, POST, PUT, PATCH, DELETE, OPTIONS. 테스트: 잘못된 endpoint → 404 + CORS 헤더 존재, validation error → 422 + CORS 헤더, 서버 에러 시뮬 → 500 + CORS 헤더, OPTIONS → 200 + CORS, 허용되지 않은 오리진 차단.",
+      "status": "done",
+      "priority": 1,
+      "test_file": "tests/backend/test_cors_error.py",
+      "depends_on": []
+    },
+    {
+      "id": "quality-002",
+      "name": "Cases API 에러 코드 정상화",
+      "description": "GET /api/cases/{report_id}에서 존재하지 않는 report_id 요청 시 500 대신 404 반환. (1) Report.query.get(report_id) 결과 None → raise HTTPException(404, 'Report not found'). (2) report_id가 음수이거나 문자열 등 유효하지 않은 포맷 → 422 반환 (Pydantic path param validation). (3) 동일 패턴을 GET /api/reports/{id}에도 적용. 테스트: 존재하지 않는 ID → 404, 음수 ID → 422, 문자열 ID → 422, 정상 ID → 200.",
+      "status": "done",
+      "priority": 2,
+      "test_file": "tests/backend/test_cases_error.py",
+      "depends_on": []
+    },
+    {
+      "id": "quality-003",
+      "name": "API 에러 응답 포맷 표준화",
+      "description": "모든 API 에러 응답을 일관된 JSON 포맷으로 통일. 표준 형식: {\"error\": \"NotFound\", \"message\": \"Report not found\", \"status_code\": 404}. (1) app/core/exceptions.py에 표준 에러 응답 헬퍼 함수 생성. (2) 기존 HTTPException raise를 표준 형식으로 마이그레이션 (최소 cases, reports, watchlist, auth 라우터). (3) ValidationError(422)도 동일 포맷으로 래핑. 테스트: 각 에러 유형(401, 403, 404, 409, 422, 500)별 응답 포맷 검증.",
+      "status": "done",
+      "priority": 3,
+      "test_file": "tests/backend/test_error_format.py",
+      "depends_on": [
+        "quality-001"
+      ]
+    },
+    {
+      "id": "quality-004",
+      "name": "데이터베이스 인덱싱 최적화",
+      "description": "Alembic 마이그레이션으로 주요 쿼리 패턴에 맞는 DB 인덱스를 추가하여 API 응답 속도를 개선. (1) watchlist 테이블: (user_id, stock_id) UNIQUE INDEX 확인, (stock_id) 단독 INDEX (추적 수 집계용). (2) price_snapshots: (stock_id, collected_at DESC) 복합 INDEX (최신 시세 조회). (3) reports: (stock_id, status, created_at DESC) 복합 INDEX (히스토리 조회). (4) 기존 인덱스 중복 방지 (IF NOT EXISTS). 마이그레이션 실패 시 Alembic 트랜잭션 rollback. 테스트: 마이그레이션 up/down 성공, EXPLAIN 쿼리로 인덱스 사용 확인, 중복 실행 시 에러 없음.",
+      "status": "done",
+      "priority": 4,
+      "test_file": "tests/backend/test_db_indexes.py",
+      "depends_on": []
+    },
+    {
+      "id": "quality-005",
+      "name": "Redis 캐싱 레이어 구축",
+      "description": "자주 조회되는 데이터에 Redis 캐싱 적용. (1) app/core/cache.py 모듈 생성: get_cached(key, ttl, fetch_fn) 패턴 — 캐시 히트 시 JSON 디시리얼라이즈 반환, 미스 시 fetch_fn 실행 후 캐시 저장. (2) 적용 대상: 종목 검색 결과 (TTL 5분), 종목 상세 정보 (TTL 10분). 가격 데이터는 data-007에서 별도 처리. (3) Redis 연결 실패 시 캐시 무시하고 DB 직접 조회 (graceful degradation). (4) 캐시 무효화: 관심목록 변경 시 해당 사용자 캐시 삭제. 테스트: 캐시 히트/미스, TTL 만료, Redis 다운 시 폴백.",
+      "status": "done",
+      "priority": 5,
+      "test_file": "tests/backend/test_cache_layer.py",
+      "depends_on": []
+    },
+    {
+      "id": "quality-006",
+      "name": "API 레이트 리밋 미들웨어",
+      "description": "API 남용 방지를 위한 레이트 리밋 미들웨어 추가. (1) slowapi 라이브러리 사용 (FastAPI 호환). (2) 기본 제한: 인증 사용자 분당 60회, 비인증 분당 20회. (3) 특정 엔드포인트 개별 설정: POST /api/auth/login 분당 5회 (브루트포스 방지), POST /api/reports 분당 10회. (4) 제한 초과 시 429 Too Many Requests + Retry-After 헤더 + CORS 헤더. (5) Redis 기반 카운터 (sliding window). 테스트: 제한 이내 → 200, 초과 → 429 + Retry-After, 다른 사용자는 영향 없음.",
+      "status": "done",
+      "priority": 6,
+      "test_file": "tests/backend/test_rate_limit.py",
+      "depends_on": [
+        "quality-005"
+      ]
+    },
+    {
+      "id": "quality-007",
+      "name": "입력 검증 강화",
+      "description": "모든 API 엔드포인트의 입력 검증을 Pydantic 모델로 통일하여 유효한 입력만 통과시킴. (1) 문자열 필드: max_length 설정 (종목명 100자, 토론 내용 2000자, 댓글 500자). (2) 숫자 필드: ge/le 범위 (임계값 1.0~10.0, 페이지 1~1000). (3) XSS 방지: HTML 태그 스트립 유틸 (bleach 또는 수동 정규식) — 입력에 <script> 등 포함 시 태그 제거 후 저장. (4) SQL injection: SQLAlchemy 파라미터 바인딩 확인 (raw SQL 사용 시). 기존 엔드포인트 중 Pydantic 미사용 건 마이그레이션. 유효한 입력: Pydantic 검증 통과 후 정상 처리. 테스트: 각 필드별 경계값, HTML 입력 스트립, 초과 길이 → 422, 정상 범위 입력 → 200.",
+      "status": "done",
+      "priority": 7,
+      "test_file": "tests/backend/test_input_validation.py",
+      "depends_on": []
+    },
+    {
+      "id": "quality-008",
+      "name": "구조화 로깅 설정",
+      "description": "요청 추적과 성능 모니터링을 위한 구조화 로깅. (1) structlog 라이브러리 도입. (2) 미들웨어에서 request_id(UUID) 생성 → 모든 로그에 자동 포함. (3) 로그 포맷: JSON (timestamp, level, request_id, user_id, endpoint, duration_ms, status_code). (4) API 요청/응답 로깅 미들웨어: 시작/종료 시각, 소요 시간, 상태 코드. body는 로깅하지 않음 (개인정보). (5) Celery 태스크 로깅: task_id, stock_id, duration. (6) 로그 레벨: 개발=DEBUG, 프로덕션=INFO. structlog 초기화 실패 시 표준 logging 폴백. 잘못된 로그 레벨 설정 시 INFO 기본값. 테스트: 로그 출력 포맷 검증, request_id 전파 확인, 에러 응답에도 로그 기록, Redis/DB 연결 실패 시 로그 누락 없음.",
+      "status": "done",
+      "priority": 8,
+      "test_file": "tests/backend/test_logging.py",
+      "depends_on": []
+    },
+    {
+      "id": "data-006",
+      "name": "Watchlist API 시세 데이터 통합",
+      "description": "GET /api/watchlist 응답에 각 종목의 최신 PriceSnapshot 데이터 포함. 추가 필드: latest_price(float, 현재가), price_change(float, 전일대비 변동금액), price_change_pct(float, 변동률), price_currency('KRW'|'USD', market 기반), price_updated_at(ISO 8601, 수집 시각), is_price_available(bool). SQLAlchemy 서브쿼리로 각 stock_id의 최신 PriceSnapshot 1건만 LEFT JOIN — N+1 방지. PriceSnapshot 없는 종목: latest_price=null, is_price_available=false. 한국(KRX): KRW, 미국(NYSE/NASDAQ): USD. 테스트: 시세 있는 종목 → 필드 존재+정확성, 없는 종목 → null, 복수 종목 → 단일 쿼리 확인.",
+      "status": "done",
+      "priority": 9,
+      "test_file": "tests/backend/test_watchlist_price.py",
+      "depends_on": []
+    },
+    {
+      "id": "data-007",
+      "name": "시세 데이터 신선도 관리",
+      "description": "시세 데이터의 신선도(freshness)를 관리하여 오래된 데이터에 대한 안내 제공. (1) GET /api/watchlist 응답에 price_freshness 필드 추가: 'live'(30분 이내), 'delayed'(30분~6시간), 'stale'(6시간 이상), 'unavailable'(데이터 없음). (2) 한국 장중(09:00~15:30 KST) 외 시간: 마지막 수집 데이터 + freshness='delayed'. (3) Redis에 최신 시세 캐싱 (TTL 5분) — 캐시 히트 시 DB 조회 생략. (4) 캐시 키: price:{stock_id}. 수집기(Celery)가 새 PriceSnapshot 저장 시 캐시 갱신. 테스트: 장중 fresh 데이터 → 'live', 6시간 초과 → 'stale', 캐시 히트/미스.",
+      "status": "done",
+      "priority": 10,
+      "test_file": "tests/backend/test_price_freshness.py",
+      "depends_on": [
+        "data-006",
+        "quality-005"
+      ]
+    },
+    {
+      "id": "ui-011",
+      "name": "StockCard 시세 표시 UI",
+      "description": "StockCard 컴포넌트에 시세 데이터 표시. (1) 현재가: 볼드 18px. 한국: '₩65,300' (천단위 쉼표), 미국: '$189.45'. (2) 변동: 14px, 상승=빨강+▲, 하락=파랑+▼, 보합=회색 '-'. 포맷: '+2,100 (+3.3%)'. (3) is_price_available=false: '시세 대기중' 회색 이탤릭 (기존 '-' 대체). (4) price_freshness='stale': 가격 옆 '⚠' 아이콘 + 툴팁 '업데이트 지연'. (5) price_updated_at 기준 'N분 전' 상대시간 (10px 회색, 카드 하단). Intl.NumberFormat으로 통화 포맷. 테스트: 시세 있는/없는 카드 렌더링, KRW/USD 포맷, 상승/하락/보합 색상, stale 경고.",
+      "status": "done",
+      "priority": 11,
+      "test_file": "tests/frontend/test_stockcard_price.py",
+      "depends_on": [
+        "data-006"
+      ]
+    },
+    {
+      "id": "ui-012",
+      "name": "종목 추적 현황 API 및 표시",
+      "description": "각 종목의 전체 추적 사용자 수를 StockCard에 표시. Backend: GET /api/watchlist 응답에 tracking_count 필드 추가. 쿼리: SELECT stock_id, COUNT(DISTINCT user_id) FROM watchlist GROUP BY stock_id — 서브쿼리로 watchlist JOIN 시 포함. Frontend: StockCard에 '👥 N명 추적 중' (12px 회색, 변동률 아래). 1명: '1명 추적 중', 100+: '100명+ 추적 중', 0명: 미표시 (본인 등록 시 최소 1). API 에러 시 tracking_count 영역 숨김 (에러가 카드 전체를 깨뜨리지 않도록). 테스트: tracking_count 정확성 (다중 사용자), 0/1/N/100+ 표시 분기, API 에러 시 graceful 처리.",
+      "status": "done",
+      "priority": 12,
+      "test_file": "tests/backend/test_tracking_count.py",
+      "depends_on": []
+    },
+    {
+      "id": "ui-013",
+      "name": "StockCard ⋮ 관리 메뉴 (데스크톱)",
+      "description": "StockCard의 기존 ⚙️ 아이콘을 ⋮ kebab 메뉴로 교체하여 관리 메뉴를 드롭다운으로 표시. 메뉴 항목: (1) '📊 이벤트 히스토리' → /stocks/{stock_id} (history-002 전 빈 fallback), (2) '🔔 알림 ON/OFF' → 토글 스위치, PATCH API 호출 성공 시 토스트 '알림이 켜졌습니다'/'꺼졌습니다', 실패 시 빨간 토스트, (3) '⚙️ 변동 감지 임계값' → 인라인 스텝퍼 (±0.5%, 범위 1.0~10.0%, 기존 ui-007 로직 이전), (4) '🗑️ 관심목록에서 제거' → 빨간 텍스트, 확인 다이얼로그 후 DELETE, 실패 시 빨간 토스트. 데스크톱: 카드 우측 상단 드롭다운 (max-width 240px, z-index 관리). Escape 닫기, 외부 클릭 닫기, 화살표 키 탐색. 기존 ui-007 임계값 인라인 패널 제거. 테스트: 메뉴 오픈/클로즈, 각 항목 동작, Escape/외부클릭, API 에러 시 토스트.",
+      "status": "done",
+      "priority": 13,
+      "test_file": "tests/frontend/test_kebab_menu.py",
+      "depends_on": [
+        "ui-012"
+      ]
+    },
+    {
+      "id": "ui-014",
+      "name": "StockCard ⋮ 메뉴 모바일 바텀시트",
+      "description": "768px 이하에서 ⋮ 메뉴를 바텀시트로 표시. (1) 반투명 오버레이(rgba(0,0,0,0.5)) + 하단 슬라이드업 애니메이션 (300ms ease-out). (2) 바텀시트 내용: ui-013과 동일 메뉴 항목 (히스토리/알림/임계값/제거). (3) 터치 영역 최소 48px. (4) 스와이프 다운으로 닫기. (5) 오버레이 클릭으로 닫기. (6) safe-area-inset-bottom 대응 (padding). CSS @media (max-width: 768px)로 분기. 바텀시트 열린 상태에서 body scroll 잠금 (overflow: hidden). API 호출 실패 시 바텀시트 닫히지 않고 에러 토스트 표시. 테스트: 모바일 뷰포트에서 바텀시트 렌더링, 닫기 동작, 데스크톱에서는 드롭다운, API 에러 시 토스트.",
+      "status": "done",
+      "priority": 14,
+      "test_file": "tests/frontend/test_bottomsheet_menu.py",
+      "depends_on": [
+        "ui-013"
+      ]
+    },
+    {
+      "id": "history-001",
+      "name": "이벤트 히스토리 API",
+      "description": "GET /api/stocks/{stock_id}/history — 종목의 과거 급변동 이벤트 타임라인 반환. 응답: {stock_id, stock_name, stock_code, market, tracking_since(MIN(created_at) FROM watchlist WHERE stock_id), events: [{id, date, change_pct, direction('up'|'down'), summary(Report.analysis JSONB에서 1줄 요약), confidence('high'|'medium'|'low'), report_id}], pagination: {page, per_page, total, has_more}}. 페이지네이션: ?page=1&per_page=20. Report 테이블에서 stock_id+status=completed를 created_at DESC 조회. 빈 결과: events=[], message='아직 추적 이벤트가 없습니다'. 존재하지 않는 stock_id: 404. 인증 필수. 테스트: 이벤트 목록 정확성, 빈 히스토리, 페이지네이션(21건→2페이지), 404, tracking_since.",
+      "status": "done",
+      "priority": 15,
+      "test_file": "tests/backend/test_history_api.py",
+      "depends_on": []
+    },
+    {
+      "id": "history-002",
+      "name": "종목 상세 페이지 라우트",
+      "description": "/stocks/[stockId] Next.js 라우트 생성. (1) Server Component로 초기 데이터 fetch (history API). (2) 페이지 레이아웃: 상단 헤더 영역 + 중앙 타임라인 영역 + 하단 토론 영역(community-004에서 구현). (3) 헤더: 종목명(24px 볼드), 종목코드(14px 회색), 시장 뱃지(KRX 파란/NYSE 초록/NASDAQ 보라, 12px 라운드 뱃지), 현재가+변동률(data-006 데이터 사용), '👥 N명 추적 중'. (4) 뒤로가기 버튼 → /dashboard. (5) 존재하지 않는 stockId: not-found.tsx 표시. 테스트: 페이지 라우팅, 헤더 렌더링, 404 fallback.",
+      "status": "done",
+      "priority": 16,
+      "test_file": "tests/frontend/test_stock_detail_page.py",
+      "depends_on": [
+        "history-001"
+      ]
+    },
+    {
+      "id": "history-003",
+      "name": "이벤트 타임라인 UI 컴포넌트",
+      "description": "종목 상세 페이지의 이벤트 타임라인 섹션. (1) '📈 이벤트 히스토리' 제목 + tracking_since 표시('2026.02.15부터 추적 중', 12px 회색). (2) 각 이벤트 카드: 좌측 날짜(YYYY.MM.DD), 변동률(상승 빨강/하락 파랑, 20px 볼드, ▲/▼ 접두어), 원인 요약(1줄, 14px, 200자 초과 시 ellipsis), 확신도 뱃지(높음:초록/중간:노랑/낮음:회색, pill shape). (3) 카드 hover: 살짝 들어올림(shadow 강화) + cursor pointer. (4) 카드 클릭 → /reports/{report_id}. (5) 타임라인 좌측에 세로 점선으로 연결. Client Component (인터랙션). 데이터 로딩 실패 시 '이벤트를 불러올 수 없습니다. 다시 시도해주세요' 에러 메시지 + 재시도 버튼. 테스트: 이벤트 카드 렌더링, 색상 분기, 클릭 네비게이션, API 에러 시 에러 메시지.",
+      "status": "done",
+      "priority": 17,
+      "test_file": "tests/frontend/test_timeline_ui.py",
+      "depends_on": [
+        "history-001"
+      ]
+    },
+    {
+      "id": "history-004",
+      "name": "타임라인 페이지네이션 및 빈 상태",
+      "description": "타임라인 컴포넌트의 페이지네이션과 빈 상태 처리. (1) 20건 초과 시 하단 '이전 이벤트 더 보기' 버튼. 클릭 → page+1 API 호출 → 기존 목록 아래 append. 로딩 중: 버튼 비활성+스피너. has_more=false: 버튼 숨김. (2) 빈 상태 (events=[]): 중앙 정렬 일러스트(시계 아이콘) + '아직 추적 이벤트가 없습니다' (18px) + '급변동이 감지되면 자동으로 기록됩니다' (14px 회색). (3) tracking_since 없음 (아무도 추적 안 함): '이 종목은 아직 추적되지 않고 있습니다' + '관심목록에 추가' CTA. 테스트: 21건 → 더보기 버튼, 로딩 상태, 빈 상태 렌더링.",
+      "status": "done",
+      "priority": 18,
+      "test_file": "tests/frontend/test_timeline_pagination.py",
+      "depends_on": [
+        "history-003"
+      ]
+    },
+    {
+      "id": "history-005",
+      "name": "종목 추가 토스트 및 히스토리 진입점",
+      "description": "종목 추가/히스토리 관련 UX 피드백. (1) 종목을 관심목록에 추가할 때 토스트: '종목 추적이 시작되었습니다' (초록 체크 아이콘, 3초 후 자동 닫힘). 추가 실패(409 중복/500 서버에러): '종목 추가에 실패했습니다' 빨간 토스트. (2) StockCard 종목명 클릭 → /stocks/{stock_id} 이동 (cursor pointer, hover underline). (3) ⋮ 메뉴의 '📊 이벤트 히스토리' 클릭 → /stocks/{stock_id} 이동. (4) 리포트 상세 페이지에서 종목명 클릭 → /stocks/{stock_id} 이동. 존재하지 않는 stock_id로 네비게이션 시 404 페이지 표시. 테스트: 종목 추가 성공/실패 토스트, StockCard 클릭 네비, 메뉴 항목 네비, 리포트→종목 링크, 404 fallback.",
+      "status": "done",
+      "priority": 19,
+      "test_file": "tests/frontend/test_history_navigation.py",
+      "depends_on": [
+        "history-002",
+        "ui-013"
+      ]
+    },
+    {
+      "id": "history-006",
+      "name": "종목 상세 API 통합 엔드포인트",
+      "description": "GET /api/stocks/{stock_id} — 종목 상세 정보를 한 번에 반환하는 통합 API. 응답: {id, name, code, market, latest_price, price_change_pct, price_currency, price_freshness, tracking_count, tracking_since, is_tracked_by_me(현재 사용자 추적 여부)}. 이 API는 종목 상세 페이지 헤더에서 사용. 히스토리는 별도 history-001 API로 fetch. 존재하지 않는 stock_id: 404. 인증 필수. 테스트: 상세 정보 정확성, is_tracked_by_me true/false, tracking_count, 404.",
+      "status": "done",
+      "priority": 20,
+      "test_file": "tests/backend/test_stock_detail_api.py",
+      "depends_on": [
+        "data-006"
+      ]
+    },
+    {
+      "id": "share-001",
+      "name": "SharedReport 모델 및 마이그레이션",
+      "description": "리포트 공유를 위한 SharedReport 모델 생성. 컬럼: id(PK, auto), report_id(FK→reports.id, NOT NULL), share_token(VARCHAR 36, UUID v4, UNIQUE INDEX), created_by(FK→users.id, NOT NULL), expires_at(TIMESTAMP, created_at + 30일), created_at(TIMESTAMP, default now). Alembic 마이그레이션. share_token에 UNIQUE INDEX. report_id + created_by 복합 INDEX (중복 체크용). FK 삭제 정책: report 삭제 시 CASCADE, user 삭제 시 CASCADE. share_token 최대 36자 (UUID v4 포맷). expires_at은 30일 고정 (변경 불가). 테스트: 모델 생성, 필수 컬럼 NOT NULL 제약 위반 시 IntegrityError, share_token 유니크 제약 위반 시 IntegrityError, CASCADE 동작.",
+      "status": "done",
+      "priority": 21,
+      "test_file": "tests/backend/test_shared_report_model.py",
+      "depends_on": []
+    },
+    {
+      "id": "share-002",
+      "name": "리포트 공유 URL 생성 API",
+      "description": "POST /api/reports/{id}/share — 인증 필수. 본인 watchlist 종목의 리포트만 공유 가능 (타인 리포트: 403 'You can only share reports for your tracked stocks'). 기존 유효 토큰 있으면 재반환 (중복 방지: WHERE report_id=id AND created_by=user_id AND expires_at > now). 만료된 기존 토큰 있으면 새 토큰 생성. 공유 URL 유효 기간: 30일 (expires_at). 응답: {share_token, share_url: '/shared/{token}', expires_at}. 존재하지 않는 report_id: 404. 테스트: 공유 생성, 중복 시 재반환, 만료 후 재생성, 403 권한, 404, expires_at 30일 검증.",
+      "status": "done",
+      "priority": 22,
+      "test_file": "tests/backend/test_share_create.py",
+      "depends_on": [
+        "share-001"
+      ]
+    },
+    {
+      "id": "share-003",
+      "name": "공유 리포트 비인증 조회 API",
+      "description": "GET /api/shared/{share_token} — 비인증 접근 가능. 리포트 본문 + 원인 분석 + 유사 사례 반환. 응답에 사용자 개인정보 미포함 (user_id, email 제외). 만료된 토큰: 410 Gone + {message: '이 공유 링크는 만료되었습니다'}. 잘못된 토큰: 404. 응답 형태: {stock_name, stock_code, market, report: {summary, causes, sources, similar_cases, created_at}, shared_at, expires_at}. 테스트: 유효 토큰 조회, 만료 토큰 → 410, 잘못된 토큰 → 404, 개인정보 미포함.",
+      "status": "done",
+      "priority": 23,
+      "test_file": "tests/backend/test_share_public.py",
+      "depends_on": [
+        "share-001"
+      ]
+    },
+    {
+      "id": "share-004",
+      "name": "리포트 공유 버튼 및 클립보드 UI",
+      "description": "리포트 상세 페이지(/reports/[id]) 상단 우측에 공유 버튼 추가. (1) 🔗 아이콘 + '공유' 텍스트 (버튼). (2) 클릭 → POST /api/reports/{id}/share → 성공 시 navigator.clipboard.writeText(share_url) → '공유 링크가 복사되었습니다 (30일간 유효)' 초록 토스트 3초. (3) 클립보드 API 미지원: URL을 readonly input + '복사' 버튼 모달. (4) 에러: 403 → '본인의 추적 종목 리포트만 공유할 수 있습니다' 빨간 토스트. (5) 로딩: 버튼 비활성 + 스피너. 테스트: 공유 버튼 클릭→URL 복사, 토스트, 에러 토스트, 로딩 상태.",
+      "status": "done",
+      "priority": 24,
+      "test_file": "tests/frontend/test_share_button.py",
+      "depends_on": [
+        "share-002"
+      ]
+    },
+    {
+      "id": "share-005",
+      "name": "공유 리포트 페이지 및 만료 처리",
+      "description": "/shared/[token] Next.js 라우트. 별도 레이아웃 (글로벌 헤더 없음). (1) 상단: 'oh-my-stock 공유 리포트' 미니 헤더 (로고 클릭→/). (2) 본문: 리포트 읽기 전용으로 정상 표시 — 기존 리포트 상세 컴포넌트 재사용 (공유 모드 prop). (3) 하단: '더 많은 분석을 보려면 가입하세요' CTA 배너 + 회원가입 링크. (4) 만료: '이 공유 링크는 만료되었습니다' 중앙 메시지 + 시계 아이콘 + 'oh-my-stock 방문하기' 링크 (API 410 → 만료 UI). (5) 잘못된 토큰: 404 페이지 (API 404 → not-found). (6) OG 메타: title='[종목명] 변동 분석 | oh-my-stock', description=report.summary. API 로딩 중 스켈레톤 표시. 테스트: 정상 페이지 렌더, 만료 페이지, 404, OG 메타, 로딩 스켈레톤.",
+      "status": "done",
+      "priority": 25,
+      "test_file": "tests/frontend/test_shared_page.py",
+      "depends_on": [
+        "share-003"
+      ]
+    },
+    {
+      "id": "profile-001",
+      "name": "사용자 닉네임 모델 및 프로필 API",
+      "description": "User 모델에 nickname 컬럼 추가 + 프로필 CRUD API. (1) Alembic: nickname VARCHAR(20), UNIQUE, nullable. (2) GET /api/profile — {email, nickname, created_at}. nickname null이면 이메일 '@' 앞부분을 display_name으로 반환. (3) PUT /api/profile — {nickname} 수정. 검증: 2~20자, ^[가-힣a-zA-Z0-9_]{2,20}$, 중복 시 409 Conflict + '이미 사용 중인 닉네임입니다'. 빈 문자열/null: nickname 초기화(display_name으로 복귀). 인증 필수. 테스트: 프로필 조회, 닉네임 설정/변경, 중복 → 409, 유효성 위반 → 422, null → 기본값.",
+      "status": "done",
+      "priority": 26,
+      "test_file": "tests/backend/test_profile_api.py",
+      "depends_on": []
+    },
+    {
+      "id": "profile-002",
+      "name": "프로필 활동 통계 API",
+      "description": "GET /api/profile 응답에 stats 필드 추가. stats: {watchlist_count(관심 종목 수), report_count(받은 리포트 수 — 본인 watchlist 종목의 completed 리포트), discussion_count(작성한 토론 글 수, community-001 전에는 0)}. 각 COUNT는 서브쿼리로 산출 (N+1 방지). discussion_count: Discussion 테이블 존재 시 COUNT, 미존재 시 0 (graceful). 테스트: 각 stats 정확성 (종목 3개+리포트 5개 → 정확한 수치), 빈 사용자 → 모두 0.",
+      "status": "done",
+      "priority": 27,
+      "test_file": "tests/backend/test_profile_stats.py",
+      "depends_on": [
+        "profile-001"
+      ]
+    },
+    {
+      "id": "profile-003",
+      "name": "마이페이지 라우트 및 프로필 카드",
+      "description": "/mypage Next.js 라우트. Server Component로 GET /api/profile fetch. (1) 프로필 카드: 아바타(닉네임 첫 글자 원형 배경), 닉네임(20px 볼드), 이메일(14px 회색, 읽기 전용), 가입일('2026.02.17 가입', 12px). (2) 활동 통계: 3개 카드 가로 배치 — '관심 종목 N개' / '받은 리포트 N개' / '작성 토론 N개'. 각 카드: 숫자(24px 볼드), 라벨(12px 회색). (3) 반응형: 모바일에서 통계 카드 세로 스택. (4) 인증 미로그인 → /login 리다이렉트. 프로필 API 실패 시 에러 메시지 '프로필을 불러올 수 없습니다' + 재시도 버튼. 테스트: 프로필 정보 렌더링, 통계 카드, 모바일 레이아웃, 비인증 리다이렉트, API 에러 처리.",
+      "status": "done",
+      "priority": 28,
+      "test_file": "tests/frontend/test_mypage.py",
+      "depends_on": [
+        "profile-001"
+      ]
+    },
+    {
+      "id": "profile-004",
+      "name": "닉네임 인라인 편집 UI",
+      "description": "마이페이지 프로필 카드에서 닉네임 인라인 수정. (1) 닉네임 옆 ✏️ 아이콘. 클릭 → 텍스트가 input으로 전환 + '저장'/'취소' 버튼. (2) 저장: PUT /api/profile → 성공 시 '닉네임이 변경되었습니다' 초록 토스트. 409: '이미 사용 중인 닉네임입니다' 빨간 토스트 + input 유지. 422: 필드 하단 에러 메시지 ('2~20자, 한글/영문/숫자만 가능'). (3) 취소: 원래 값 복원. (4) Enter키 → 저장, Escape → 취소. (5) input maxLength=20. 테스트: 편집 모드 전환, 저장 성공/실패, 키보드 단축키, 취소 복원.",
+      "status": "done",
+      "priority": 29,
+      "test_file": "tests/frontend/test_nickname_edit.py",
+      "depends_on": [
+        "profile-003"
+      ]
+    },
+    {
+      "id": "profile-005",
+      "name": "비밀번호 변경 API 및 UI",
+      "description": "비밀번호 변경 기능. Backend: PUT /api/profile/password — {current_password, new_password}. current_password bcrypt 검증 실패: 400 '현재 비밀번호가 올바르지 않습니다'. new_password 최소 8자, 영문+숫자 필수: 422. 성공: 200 + bcrypt 해싱 후 저장. Frontend: 마이페이지 하단 접이식(Accordion) '비밀번호 변경' 섹션. 클릭 → 펼침. 현재 비밀번호 / 새 비밀번호 / 새 비밀번호 확인 3개 input. 비밀번호 보기 토글(👁). 불일치 시 실시간 에러('비밀번호가 일치하지 않습니다'). 성공: 초록 토스트 + 폼 초기화 + 섹션 접기. 테스트: API 검증(현재 비번 틀림→400, 짧은 비번→422, 성공→200), UI 폼 동작.",
+      "status": "done",
+      "priority": 30,
+      "test_file": "tests/backend/test_password_change.py",
+      "depends_on": [
+        "profile-001"
+      ]
+    },
+    {
+      "id": "profile-006",
+      "name": "활동 이력 페이지",
+      "description": "마이페이지 하단에 '최근 활동' 섹션 추가. (1) 탭 구성: '리포트' | '토론'. (2) 리포트 탭: 본인 watchlist 종목의 최근 리포트 목록 (종목명, 변동률, 날짜, 클릭→리포트 상세). GET /api/profile/reports?page=1&per_page=10. (3) 토론 탭: 본인 작성 토론 글 목록 (종목명, 내용 미리보기, 날짜, 클릭→종목 상세). GET /api/profile/discussions?page=1&per_page=10. community-001 전에는 빈 상태. (4) 각 탭 10건 + '더 보기'. (5) 빈 상태: '아직 활동 이력이 없습니다'. 테스트: 리포트 탭 렌더링, 토론 탭(빈), 페이지네이션, 링크.",
+      "status": "done",
+      "priority": 31,
+      "test_file": "tests/frontend/test_activity_history.py",
+      "depends_on": [
+        "profile-002"
+      ]
+    },
+    {
+      "id": "ui-015",
+      "name": "타이포그래피 시스템 설정",
+      "description": "서비스 전체에 일관된 폰트 시스템 적용. (1) Pretendard 폰트 설정: next/font/local로 PretendardVariable.woff2 로드 (subset: korean). 폴백: 'Noto Sans KR', system-ui, sans-serif. 폰트 파일 크기 최대 300KB (woff2 압축). (2) 타입 스케일 CSS 변수: --text-xs:12px, --text-sm:14px, --text-base:16px, --text-lg:18px, --text-xl:20px, --text-2xl:24px, --text-3xl:30px (7단계). (3) font-weight: --font-normal:400, --font-medium:500, --font-semibold:600, --font-bold:700 (4단계). (4) globals.css에 body { font-family: var(--font-pretendard) }. (5) line-height: 1.5 (본문), 1.2 (제목). 폰트 로드 실패 시 폴백 폰트로 정상 렌더링 (font-display: swap). 테스트: 폰트 로드 확인, CSS 변수 7+4개 존재, 렌더링 일관성, 폴백 폰트 동작.",
+      "status": "done",
+      "priority": 32,
+      "test_file": "tests/frontend/test_typography.py",
+      "depends_on": []
+    },
+    {
+      "id": "ui-016",
+      "name": "디자인 토큰 정의",
+      "description": "서비스 전체 디자인 토큰(색상, 간격, 보더)을 CSS 변수로 정의하여 일관된 스타일 시스템 구축. (1) 색상: --color-primary:#2563EB(파란), --color-danger:#DC2626(빨간), --color-success:#16A34A(초록), --color-warning:#D97706(노란), --color-up:#DC2626(상승 빨강), --color-down:#2563EB(하락 파랑), --color-gray-50~900(9단계). (2) 간격: --space-1:4px ~ --space-12:48px (4px 단위, 12단계). (3) 보더: --radius-sm:4px, --radius-md:8px, --radius-lg:12px, --radius-full:9999px. (4) 그림자: --shadow-sm, --shadow-md, --shadow-lg. (5) globals.css :root에 정의. 기존 하드코딩된 색상/간격을 변수로 교체 (주요 컴포넌트 최소 10개). 변수 미정의 시 하드코딩 폴백 유지. 테스트: CSS 변수 30개+ 존재, 주요 컴포넌트가 변수를 사용하는지 확인, 변수 누락 시 폴백 동작.",
+      "status": "done",
+      "priority": 33,
+      "test_file": "tests/frontend/test_design_tokens.py",
+      "depends_on": []
+    },
+    {
+      "id": "ui-017",
+      "name": "글로벌 헤더 및 데스크톱 네비게이션",
+      "description": "Next.js RootLayout에 글로벌 헤더 추가. (1) 좌측: 로고 'oh-my-stock' (클릭→/ 또는 /dashboard). (2) 중앙: 네비 링크 (대시보드 | 마이페이지), 현재 페이지 active 밑줄+볼드. (3) 우측 (로그인 시): 알림 벨 아이콘(ui-022에서 구현, placeholder div) + 프로필 아이콘(닉네임 첫 글자 원형, 클릭→/mypage). (4) 우측 (비로그인): '로그인' 텍스트 링크 + '시작하기' 파란 버튼(→/signup). (5) 높이 64px, border-bottom 1px gray-200, sticky top-0, z-50, 배경 white. (6) 768px 이하에서 중앙 네비 숨김 (모바일은 ui-018). 인증 상태 로딩 중: 우측 영역 스켈레톤 (깜빡임 방지). 네비 링크 없는 경로(/shared/*)에서는 미니 헤더. 테스트: 로그인/비로그인 헤더, 네비 active 상태, 프로필 아이콘, 인증 로딩 상태, 미니 헤더.",
+      "status": "done",
+      "priority": 34,
+      "test_file": "tests/frontend/test_global_header.py",
+      "depends_on": [
+        "profile-001"
+      ]
+    },
+    {
+      "id": "ui-018",
+      "name": "모바일 하단 네비게이션",
+      "description": "768px 이하에서 하단 고정 탭 바 표시. (1) 탭: 대시보드(🏠) | 뉴스(📰, news-004 전 placeholder) | 마이페이지(👤). 각 탭: 아이콘 + 라벨(10px). (2) 현재 페이지 탭: primary 색상, 비활성: gray-500. (3) 높이 56px + safe-area-inset-bottom padding. border-top 1px gray-200. (4) 배경 white, z-50. (5) 데스크톱(769px+)에서 숨김. (6) 하단 탭 바가 페이지 콘텐츠를 가리지 않도록 body padding-bottom 추가. 테스트: 모바일에서 탭 바 렌더링, 탭 active 상태, 데스크톱에서 숨김.",
+      "status": "done",
+      "priority": 35,
+      "test_file": "tests/frontend/test_mobile_nav.py",
+      "depends_on": [
+        "ui-017"
+      ]
+    },
+    {
+      "id": "ui-019",
+      "name": "랜딩 페이지",
+      "description": "/ 라우트에서 비로그인 사용자에게 서비스 소개 페이지 표시. (1) 히어로 섹션: '주가가 급변했을 때, AI가 이유를 알려드립니다' (36px 볼드 중앙), 부제 '뉴스와 공시를 분석해 변동 원인을 심층 리포트로 제공합니다' (16px 회색), '무료로 시작하기' 파란 CTA 버튼(→/signup). (2) 기능 소개 3카드: 급변동 감지(⚡) / AI 분석(🤖) / 이벤트 히스토리(📊). 각 카드: 아이콘+제목+설명 1줄. (3) 하단: '지금 바로 시작하세요' CTA 반복. (4) 로그인 사용자 / 접근 → /dashboard 리다이렉트 (middleware.ts). (5) 반응형: 모바일에서 카드 세로 스택, 히어로 텍스트 28px. 인증 확인 중 빈 화면 방지 (로딩 스켈레톤 또는 즉시 렌더). 테스트: 비로그인 렌더링, 로그인 리다이렉트, CTA 링크, 모바일 레이아웃, 인증 로딩 상태.",
+      "status": "done",
+      "priority": 36,
+      "test_file": "tests/frontend/test_landing_page.py",
+      "depends_on": [
+        "ui-015",
+        "ui-016"
+      ]
+    },
+    {
+      "id": "ui-020",
+      "name": "글로벌 푸터",
+      "description": "모든 페이지 하단에 글로벌 푸터를 추가하여 서비스 정보를 표시. (1) 면책 조항: \"본 서비스는 투자 조언을 제공하지 않습니다. 투자 판단의 책임은 본인에게 있습니다.\" (12px 회색 중앙 정렬). (2) 링크: 이용약관(#) | 개인정보처리방침(#) | 문의(#) — 12px 회색, hover 시 밑줄. (3) 카피라이트: \"© 2026 oh-my-stock\" (12px 회색). (4) 배경 gray-50, padding 24px, border-top 1px gray-200. (5) 모바일: 하단 탭 바 위에 위치 (탭 바에 가리지 않도록 margin-bottom 56px). 공유 페이지(/shared/*)에서는 푸터 미표시. 푸터가 없는 페이지(404, 에러)에서도 정상 렌더링되도록 조건부 표시. 테스트: 면책 조항 텍스트 존재, 링크 렌더링, 카피라이트, 모바일 여백, 공유 페이지 미표시.",
+      "status": "done",
+      "priority": 37,
+      "test_file": "tests/frontend/test_footer.py",
+      "depends_on": []
+    },
+    {
+      "id": "ui-021",
+      "name": "인증 페이지 리디자인",
+      "description": "로그인/회원가입 페이지를 디자인 토큰 기반으로 리디자인. (1) 중앙 정렬 카드 레이아웃 (max-width 400px). (2) 상단: oh-my-stock 로고 + '로그인' 또는 '회원가입' 제목. (3) 입력 필드: 라벨+input+에러 메시지 일관된 스타일. input: border gray-300, focus ring primary, radius-md, padding 12px. (4) 버튼: 전체 너비 파란 버튼 (radius-md, 48px 높이). (5) 하단: '계정이 없으신가요? 회원가입' / '이미 계정이 있으신가요? 로그인' 텍스트 링크. (6) 에러 상태: 필드 border 빨간, 하단 에러 메시지 빨간 12px. 기존 기능 유지하며 스타일만 교체. 테스트: 로그인/회원가입 폼 렌더링, 에러 표시, 네비게이션 링크.",
+      "status": "done",
+      "priority": 38,
+      "test_file": "tests/frontend/test_auth_redesign.py",
+      "depends_on": [
+        "ui-015",
+        "ui-016"
+      ]
+    },
+    {
+      "id": "ui-022",
+      "name": "헤더 알림 벨 통합",
+      "description": "글로벌 헤더에 알림 벨 아이콘 기능 연결. (1) 🔔 아이콘 (24px). 읽지 않은 알림 있으면 우측 상단에 빨간 점(8px 원). (2) 클릭 → 드롭다운 (300px 너비): 최근 알림 5건 (종목명, 변동률, 시간). 각 항목 클릭 → /reports/{report_id}. (3) 드롭다운 하단: '모든 알림 보기' 링크 (→ /notifications, 빈 페이지 placeholder). (4) 알림 없음: '새로운 알림이 없습니다' 중앙 텍스트. (5) API: GET /api/notifications?limit=5 (기존 알림 시스템 활용). 드롭다운 외부 클릭 닫기. 테스트: 벨 아이콘, 빨간 점 표시/미표시, 드롭다운 렌더링, 닫기.",
+      "status": "done",
+      "priority": 39,
+      "test_file": "tests/frontend/test_notification_bell.py",
+      "depends_on": [
+        "ui-017"
+      ]
+    },
+    {
+      "id": "ui-023",
+      "name": "신규 사용자 온보딩 플로우",
+      "description": "회원가입 직후 첫 방문 사용자를 위한 가이드. (1) 첫 로그인 감지: User.last_login_at이 null이면 온보딩 시작 (로그인 시 last_login_at 업데이트 — User 모델에 컬럼 추가). (2) 스텝 1: '환영합니다!' 모달 — 서비스 소개 1줄 + '시작하기' 버튼. (3) 스텝 2: 대시보드에서 종목 검색 영역 하이라이트 + 툴팁 '관심 종목을 추가해보세요'. (4) 스텝 3: 종목 추가 후 StockCard 하이라이트 + '급변동이 감지되면 AI가 분석합니다' 툴팁. (5) '건너뛰기' 링크로 온보딩 스킵 가능. (6) 하이라이트: 대상 요소 외 반투명 오버레이. 테스트: 첫 로그인 시 온보딩, 재로그인 시 미표시, 건너뛰기.",
+      "status": "done",
+      "priority": 40,
+      "test_file": "tests/frontend/test_onboarding.py",
+      "depends_on": [
+        "ui-017",
+        "ui-019"
+      ]
+    },
+    {
+      "id": "ui-024",
+      "name": "SEO 기본 메타데이터",
+      "description": "Next.js Metadata API로 기본 SEO 메타데이터를 설정하여 검색 엔진과 소셜 공유 시 적절한 정보를 표시. (1) app/layout.tsx metadata: title=\"oh-my-stock | AI 주가 변동 분석\", description=\"관심 종목의 주가가 급변했을 때 AI가 원인을 분석합니다\" (최대 160자), openGraph: {title, description, siteName:\"oh-my-stock\", type:\"website\", images:[\"/og-image.png\" 1200×630px]}, twitter: {card:\"summary_large_image\"}. (2) robots.txt: public/robots.txt (Allow: /). 인증 필요 경로 Disallow: /dashboard, /mypage. (3) sitemap: 정적 sitemap.xml (/, /login, /signup, /trending). (4) canonical URL 설정. (5) 한국어 lang=\"ko\" 설정 (html 태그). og-image.png 없을 시 기본 텍스트 이미지로 폴백. robots.txt 누락 시 크롤러가 전체 인덱싱하므로 반드시 생성. 테스트: 메타 태그 존재+값 정확성, OG 태그, robots.txt Disallow 경로, lang=\"ko\" 속성.",
+      "status": "done",
+      "priority": 41,
+      "test_file": "tests/frontend/test_seo_meta.py",
+      "depends_on": []
+    },
+    {
+      "id": "ui-025",
+      "name": "동적 페이지별 SEO 타이틀",
+      "description": "각 페이지별 동적 메타데이터 설정. generateMetadata 활용. (1) /dashboard: title='내 관심 종목 | oh-my-stock'. (2) /reports/[id]: title='[종목명] 변동 분석 | oh-my-stock', description=report.summary (최대 160자 truncate). (3) /stocks/[id]: title='[종목명] 이벤트 히스토리 | oh-my-stock'. (4) /mypage: title='마이페이지 | oh-my-stock'. (5) /shared/[token]: title='[종목명] 변동 분석 공유 | oh-my-stock', OG image 포함. template: '%s | oh-my-stock' (layout.tsx). API 실패 시 기본 title 폴백 ('oh-my-stock'). 로딩 중 title 깜빡임 없도록 Server Component에서 resolve. 테스트: 각 페이지 title 정확성, OG 동적 값, API 실패 시 폴백 title.",
+      "status": "done",
+      "priority": 42,
+      "test_file": "tests/frontend/test_dynamic_titles.py",
+      "depends_on": [
+        "ui-024"
+      ]
+    },
+    {
+      "id": "ui-026",
+      "name": "스켈레톤 로딩 UI",
+      "description": "주요 페이지에 loading.tsx 스켈레톤 UI를 추가하여 데이터 로딩 중 사용자에게 시각적 피드백 제공. (1) /dashboard/loading.tsx: StockCard 모양 스켈레톤 3개 (회색 배경 pulse 애니메이션). (2) /reports/[id]/loading.tsx: 리포트 헤더+본문 스켈레톤. (3) /stocks/[id]/loading.tsx: 종목 헤더+타임라인 스켈레톤. (4) 스켈레톤 컴포넌트: Skeleton(width, height, rounded) — 회색 bg-gray-200, animate-pulse. (5) React Suspense 경계와 자동 연동 (App Router). 스켈레톤 높이를 실제 콘텐츠와 유사하게 맞춰 레이아웃 시프트 방지. 서버 에러 시 loading 대신 error.tsx로 폴백. 테스트: 각 loading.tsx 렌더링 확인, 스켈레톤 컴포넌트 props, Suspense 경계 연동.",
+      "status": "done",
+      "priority": 43,
+      "test_file": "tests/frontend/test_skeleton_loading.py",
+      "depends_on": []
+    },
+    {
+      "id": "ui-027",
+      "name": "커스텀 404 페이지",
+      "description": "app/not-found.tsx 커스텀 404 페이지. (1) 중앙 정렬 레이아웃. (2) 큰 '404' 숫자 (72px 볼드, gray-300). (3) '페이지를 찾을 수 없습니다' (24px). (4) '요청하신 페이지가 존재하지 않거나 이동되었습니다' (14px 회색). (5) '대시보드로 돌아가기' 파란 버튼 (→/dashboard). (6) 비로그인 시: '홈으로 돌아가기' (→/). (7) 글로벌 헤더+푸터 유지. 테스트: 404 페이지 렌더링, 링크 동작, 로그인/비로그인 분기.",
+      "status": "done",
+      "priority": 44,
+      "test_file": "tests/frontend/test_404_page.py",
+      "depends_on": []
+    },
+    {
+      "id": "ui-028",
+      "name": "커스텀 에러 페이지",
+      "description": "app/error.tsx 커스텀 에러 바운더리. (1) '문제가 발생했습니다' (24px). (2) '잠시 후 다시 시도해주세요' (14px 회색). (3) '다시 시도' 버튼: reset() 함수 호출 → 페이지 리렌더. (4) '대시보드로 돌아가기' 텍스트 링크. (5) 기존 ui-010 에러 바운더리와 통합 (중복 제거). (6) 'use client' 필수 (error.tsx 요구사항). (7) 개발 환경에서는 에러 스택 표시. 테스트: 에러 페이지 렌더링, 다시 시도 클릭, 링크 동작.",
+      "status": "done",
+      "priority": 45,
+      "test_file": "tests/frontend/test_error_page.py",
+      "depends_on": []
+    },
+    {
+      "id": "ui-029",
+      "name": "PWA 매니페스트 및 아이콘",
+      "description": "웹앱 매니페스트와 아이콘 설정. (1) public/manifest.json: {name:'oh-my-stock', short_name:'oh-my-stock' (최대 12자), start_url:'/', display:'standalone', theme_color:'#2563EB', background_color:'#FFFFFF', icons:[192x192 png, 512x512 png]}. (2) app/favicon.ico: oh-my-stock 로고 (간단한 텍스트 기반 또는 SVG, 32x32). (3) app/apple-icon.png: 180x180. (4) layout.tsx에 <link rel='manifest'> 추가. (5) meta theme-color 추가. 아이콘은 간단한 텍스트 로고(OM 또는 📈)로 생성. manifest.json 필수 필드 누락 시 브라우저가 무시하므로 name, icons, start_url 필수. 테스트: manifest.json 접근 가능 + JSON 유효, 필수 필드 존재, favicon 로드, apple-icon 존재.",
+      "status": "done",
+      "priority": 46,
+      "test_file": "tests/frontend/test_pwa.py",
+      "depends_on": []
+    },
+    {
+      "id": "ui-030",
+      "name": "접근성 개선",
+      "description": "주요 인터랙티브 요소의 접근성을 강화하여 키보드 사용자와 스크린 리더 사용자가 서비스를 정상 이용 가능하게 개선. (1) 모든 button에 aria-label 추가 (아이콘만 있는 버튼: ⋮→\"종목 관리 메뉴\", 🔔→\"알림\", 최소 20개 버튼). (2) 모달/드롭다운: role=\"dialog\"|\"menu\", aria-expanded, aria-haspopup. (3) 폼 input: aria-describedby로 에러 메시지 연결. (4) 키보드 네비: Tab 순서 논리적 (헤더→본문→푸터), focus-visible 스타일 (outline 2px primary). (5) 색상 대비: 본문 텍스트 gray-900 on white (WCAG AA 4.5:1 이상). (6) Skip to main content 링크 (헤더 첫 요소, sr-only, Tab 시 나타남). aria 누락 시 스크린 리더가 버튼 목적 인식 불가. 테스트: aria 속성 최소 20개 존재, Tab 순서 검증, focus-visible 스타일, 스킵 링크, 대비 기준 4.5:1.",
+      "status": "done",
+      "priority": 47,
+      "test_file": "tests/frontend/test_accessibility.py",
+      "depends_on": [
+        "ui-017"
+      ]
+    },
+    {
+      "id": "community-001",
+      "name": "토론 데이터 모델 및 마이그레이션",
+      "description": "종목별 토론 기능의 DB 모델 생성. Discussion 모델: id(PK auto), stock_id(FK→stocks.id, NOT NULL), user_id(FK→users.id, NOT NULL), content(TEXT, NOT NULL, 최대 2000자), created_at(TIMESTAMP default now), updated_at(TIMESTAMP). INDEX: (stock_id, created_at DESC). DiscussionComment 모델: id(PK auto), discussion_id(FK→discussions.id, NOT NULL, CASCADE DELETE), user_id(FK→users.id, NOT NULL), content(TEXT, NOT NULL, 최대 500자), created_at(TIMESTAMP). INDEX: (discussion_id, created_at ASC). Alembic 마이그레이션. FK 삭제 정책: stock 삭제 시 CASCADE, user 삭제 시 CASCADE. 테스트: 모델 생성, FK 제약, NOT NULL 위반 → IntegrityError, CASCADE DELETE 동작, content 최대 길이 검증.",
+      "status": "done",
+      "priority": 48,
+      "test_file": "tests/backend/test_discussion_model.py",
+      "depends_on": []
+    },
+    {
+      "id": "community-002",
+      "name": "토론 CRUD API",
+      "description": "종목별 토론 글 CRUD API. 성공 시나리오: POST → 201 + 생성된 토론 반환, GET → 200 + 목록, PUT → 200 + 수정된 토론, DELETE → 204. POST /api/stocks/{stock_id}/discussions — 인증 필수, {content} (1~2000자, 빈 내용 422). GET /api/stocks/{stock_id}/discussions?page=1&per_page=20 — 최신순. 각 항목: {id, content, author_name(User.nickname 우선, 없으면 email '@' 앞부분), comment_count(서브쿼리 COUNT), created_at, is_mine}. PUT /api/discussions/{id} — 본인만 (타인 403), {content}. DELETE /api/discussions/{id} — 본인만 (타인 403), CASCADE 댓글 삭제. 존재하지 않는 discussion_id: 404. 테스트: 작성, 목록(페이지네이션), 수정, 삭제(CASCADE), 403, 404, content 길이 1~2000자 경계값.",
+      "status": "done",
+      "priority": 49,
+      "test_file": "tests/backend/test_discussion_api.py",
+      "depends_on": [
+        "community-001",
+        "profile-001"
+      ]
+    },
+    {
+      "id": "community-003",
+      "name": "토론 댓글 API",
+      "description": "토론 글에 대한 댓글 CRUD API. 성공: POST → 201 + 생성된 댓글, GET → 200 + 목록, DELETE → 204. POST /api/discussions/{id}/comments — 인증 필수, {content} (1~500자). GET /api/discussions/{id}/comments — 작성순(ASC). 각 항목: {id, content, author_name, created_at, is_mine}. DELETE /api/comments/{id} — 본인만 (403). 존재하지 않는 discussion_id: 404. 댓글 1단계만 (대댓글 없음). 1개 토론당 최대 100개 댓글 제한 (초과 시 400 'Maximum comment limit reached'). 테스트: 댓글 작성, 목록(작성순), 삭제, 403, 404, 100개 제한, content 1~500자 경계값.",
+      "status": "done",
+      "priority": 50,
+      "test_file": "tests/backend/test_comment_api.py",
+      "depends_on": [
+        "community-001",
+        "profile-001"
+      ]
+    },
+    {
+      "id": "community-004",
+      "name": "토론 목록 및 작성 UI",
+      "description": "종목 상세 페이지(/stocks/[stockId]) 하단에 '💬 토론' 섹션. (1) 글 작성 폼: textarea(placeholder:'이 종목에 대한 의견을 남겨보세요', max 2000자) + '게시' 버튼. 비로그인: textarea 비활성 + '로그인 후 작성할 수 있습니다' 오버레이 + 로그인 링크. (2) 글 목록: 각 항목 — 작성자 닉네임(볼드) + 작성 시간('N분/시간/일 전') + 내용 미리보기(최대 2줄 ellipsis) + 댓글 수('💬 3'). (3) 20건 초과: '이전 글 더 보기' 버튼. (4) 빈 상태: '아직 토론이 없습니다. 첫 번째 글을 작성해보세요!'. Client Component. 테스트: 목록 렌더링, 작성 폼, 비로그인 상태, 빈 상태, 페이지네이션.",
+      "status": "done",
+      "priority": 51,
+      "test_file": "tests/frontend/test_discussion_list.py",
+      "depends_on": [
+        "community-002",
+        "history-002"
+      ]
+    },
+    {
+      "id": "community-005",
+      "name": "토론 수정/삭제 UI",
+      "description": "본인 글/댓글의 수정/삭제 기능 UI. (1) 본인 글: 우측 상단 '⋯' 더보기 → '수정'/'삭제'. 수정: content를 textarea(max 2000자)로 전환 + '저장'/'취소' 버튼. 삭제: 확인 다이얼로그 '삭제하면 댓글도 함께 삭제됩니다' → 확인 시 DELETE + 목록 갱신. (2) 본인 댓글: '삭제' 링크(max 500자인 댓글은 수정 없음, 삭제만). 확인 후 DELETE. (3) 수정 중 Escape → 취소. 성공: '수정되었습니다'/'삭제되었습니다' 토스트. 에러: 빨간 토스트 '처리에 실패했습니다'. (4) 타인 글/댓글: 더보기 메뉴 미표시. 테스트: 본인 수정/삭제, 타인 메뉴 미표시, 확인 다이얼로그, 토스트, 2000자/500자 제한.",
+      "status": "done",
+      "priority": 52,
+      "test_file": "tests/frontend/test_discussion_edit.py",
+      "depends_on": [
+        "community-004"
+      ]
+    },
+    {
+      "id": "community-006",
+      "name": "토론 상세 및 댓글 UI",
+      "description": "토론 글 클릭 시 인라인 확장하여 전체 내용과 댓글 표시. (1) 글 클릭 → 인라인 확장 (accordion): 전체 content + 댓글 목록(작성순). (2) 댓글: 닉네임(볼드 12px) + 내용(14px) + 시간(12px 회색). (3) 댓글 입력: 글 하단에 input(placeholder:'댓글을 입력하세요', max 500자) + '등록' 버튼. 비로그인: 비활성 + '로그인이 필요합니다' 안내. (4) 접히면 미리보기 상태 복귀. (5) 모바일: 전체 너비, 터치 영역 48px. (6) 댓글 0개: '아직 댓글이 없습니다'. 댓글 로딩 실패 시 '댓글을 불러올 수 없습니다' 에러 메시지. 테스트: 인라인 확장, 댓글 목록/작성, 비로그인 비활성, 접기, 댓글 로딩 에러.",
+      "status": "done",
+      "priority": 53,
+      "test_file": "tests/frontend/test_discussion_detail.py",
+      "depends_on": [
+        "community-003",
+        "community-004"
+      ]
+    },
+    {
+      "id": "briefing-001",
+      "name": "시장 데이터 수집 및 브리핑 모델",
+      "description": "데일리 마켓 브리핑을 위한 데이터 수집 태스크와 모델. (1) MarketBriefing 모델: id(PK), market('KR'|'US'), date(DATE, UNIQUE with market), content(JSONB — summary, key_issues[], top_movers[], market_stats{}), created_at. INDEX: (market, date DESC). (2) Celery 태스크: collect_market_data — 한국 장 마감(15:30 KST) 후 실행. KRX API로 코스피/코스닥 등락률, 거래량 상위 종목, 특징주(급등/급락). (3) 미국: 한국 시간 06:00 실행 (미장 마감 후). yfinance로 S&P500/NASDAQ 지수, 주요 종목. (4) 수집 데이터를 JSONB에 raw 저장 (AI 생성은 briefing-002에서). Celery Beat 스케줄 등록. 테스트: 모델 생성, 태스크 실행(mock), 스케줄 등록.",
+      "status": "done",
+      "priority": 54,
+      "test_file": "tests/backend/test_briefing_model.py",
+      "depends_on": []
+    },
+    {
+      "id": "briefing-002",
+      "name": "AI 브리핑 생성",
+      "description": "수집된 시장 데이터로 AI 브리핑 생성. (1) Celery 태스크: generate_market_briefing — collect_market_data 완료 후 실행 (chain). (2) Claude API 호출: 프롬프트에 수집 데이터(지수 등락, 특징주, 거래량) 포함. 출력: {summary(시장 전체 3줄 요약), key_issues[{title, description}](주요 이슈 3~5개), top_movers[{stock_name, change_pct, reason}](특징주 5개)}. (3) MarketBriefing.content JSONB 업데이트 (raw → processed). (4) API 실패 시 retry 3회 (exponential backoff). (5) 비용 제한: 브리핑당 max_tokens=1000. 테스트: AI 생성(mock), 출력 포맷, 재시도, 비용 제한.",
+      "status": "done",
+      "priority": 55,
+      "test_file": "tests/backend/test_briefing_generation.py",
+      "depends_on": [
+        "briefing-001"
+      ]
+    },
+    {
+      "id": "briefing-003",
+      "name": "브리핑 API",
+      "description": "GET /api/briefings — 마켓 브리핑 목록 조회. (1) 쿼리 파라미터: market('KR'|'US', 기본 'KR'), limit(기본 1, 최대 30). (2) 최신 날짜 순 정렬. (3) 응답: [{id, market, date, summary, key_issues, top_movers, created_at}]. (4) GET /api/briefings/today — 오늘 날짜 브리핑. 없으면 가장 최근 브리핑 반환 + is_today=false. (5) 비인증 접근 가능 (트렌딩과 함께 비로그인 사용자에게 노출). (6) 브리핑 없음: 빈 배열. 테스트: 목록 조회, today 엔드포인트, 없는 경우, market 필터.",
+      "status": "done",
+      "priority": 56,
+      "test_file": "tests/backend/test_briefing_api.py",
+      "depends_on": [
+        "briefing-001"
+      ]
+    },
+    {
+      "id": "briefing-004",
+      "name": "대시보드 브리핑 카드",
+      "description": "대시보드 상단에 '오늘의 시장' 브리핑 카드 표시. (1) 카드 헤더: '📈 오늘의 시장' + 날짜(YYYY.MM.DD). (2) 요약: summary 텍스트 (16px, 2줄). (3) 주요 이슈: key_issues 3개 bullet point (14px). (4) 특징주: top_movers 상위 3개 (종목명 + 변동률, 상승 빨강/하락 파랑). (5) '전체 보기' 링크 (→ briefing-005 아카이브). (6) 브리핑 없음: 카드 미표시. (7) 한국/미국 탭 전환 (탭 클릭 시 market 파라미터 변경). 로딩: 스켈레톤. 테스트: 카드 렌더링, 데이터 바인딩, 탭 전환, 빈 상태.",
+      "status": "done",
+      "priority": 57,
+      "test_file": "tests/frontend/test_briefing_card.py",
+      "depends_on": [
+        "briefing-003"
+      ]
+    },
+    {
+      "id": "briefing-005",
+      "name": "브리핑 아카이브 및 미국 시장",
+      "description": "/briefings 라우트 — 과거 브리핑 아카이브 페이지. (1) 한국/미국 탭 상단. (2) 날짜별 브리핑 카드 목록 (최신순, 30일). 각 카드: 날짜 + summary + 주요 이슈 접이식. (3) 미국 시장 브리핑: 동일 포맷, S&P500/NASDAQ 지수 중심. (4) 과거 30일 데이터가 없는 날: 건너뜀 (주말/공휴일). (5) 무한 스크롤 또는 '더 보기' (30일 단위). 테스트: 아카이브 목록, 탭 전환, 날짜 포맷, 빈 날짜 건너뜀.",
+      "status": "done",
+      "priority": 58,
+      "test_file": "tests/frontend/test_briefing_archive.py",
+      "depends_on": [
+        "briefing-003"
+      ]
+    },
+    {
+      "id": "news-001",
+      "name": "뉴스 수집 파이프라인 확장",
+      "description": "기존 뉴스 수집기를 확장하여 급변동 외에도 관심 종목의 일반 뉴스를 수집. (1) NewsArticle 모델: id(PK), stock_id(FK, nullable — 시장 전체 뉴스), title(VARCHAR 500), url(VARCHAR 2000, UNIQUE), source(VARCHAR 100), published_at(TIMESTAMP), content_summary(TEXT, nullable — AI 요약), importance('high'|'medium'|'low', nullable), created_at. INDEX: (stock_id, published_at DESC). (2) Celery 태스크: collect_stock_news — 1시간 간격. watchlist에 1명 이상 등록된 종목의 뉴스 수집. 한국: NAVER 검색 API(종목명), 미국: NewsAPI. (3) URL 기반 중복 방지. 테스트: 모델 생성, 수집 태스크(mock), 중복 방지.",
+      "status": "done",
+      "priority": 59,
+      "test_file": "tests/backend/test_news_collection.py",
+      "depends_on": []
+    },
+    {
+      "id": "news-002",
+      "name": "AI 뉴스 요약 및 중요도 분류",
+      "description": "수집된 뉴스에 AI 1줄 요약과 중요도 분류. (1) Celery 태스크: summarize_news — 새 뉴스 배치(최대 20건) 처리. Claude API 호출: 뉴스 제목+본문 → {summary(1줄, 50자 이내), importance('high'|'medium'|'low')}. importance 기준: high=주가에 직접 영향(실적발표, 대규모 계약, 규제 변경), medium=간접 영향(업계 동향, 경쟁사 소식), low=낮은 관련성. (2) NewsArticle.content_summary, importance 업데이트. (3) 비용 제한: 건당 max_tokens=100. (4) 요약 실패 시 title을 summary로 사용. 테스트: 요약 생성(mock), importance 분류, 실패 폴백.",
+      "status": "done",
+      "priority": 60,
+      "test_file": "tests/backend/test_news_summary.py",
+      "depends_on": [
+        "news-001"
+      ]
+    },
+    {
+      "id": "news-003",
+      "name": "뉴스 피드 API",
+      "description": "GET /api/news — 사용자 관심 종목의 뉴스 피드를 최신순으로 반환. (1) 쿼리: stock_id(선택, 특정 종목 필터), importance(선택, 'high'|'medium'|'low'), page(기본 1), per_page(기본 20, 최대 50). (2) stock_id 미지정: 사용자 watchlist 전체 종목의 뉴스. (3) 응답: [{id, stock_id, stock_name, title, url, source, summary, importance, published_at}]. (4) 최신 published_at DESC 정렬. (5) 인증 필수 (watchlist 기반 필터링). 비인증 → 401. (6) 빈 결과: 빈 배열 + message='뉴스가 없습니다'. 잘못된 importance 값 → 422. 테스트: 전체 피드, 종목 필터, importance 필터, 페이지네이션, 빈 결과, 잘못된 파라미터 → 422.",
+      "status": "done",
+      "priority": 61,
+      "test_file": "tests/backend/test_news_api.py",
+      "depends_on": [
+        "news-001"
+      ]
+    },
+    {
+      "id": "news-004",
+      "name": "뉴스 피드 페이지 UI",
+      "description": "/news 라우트 — 관심 종목 뉴스 피드 페이지. (1) 상단: '📰 뉴스 피드' 제목 + 종목 필터 드롭다운(전체/개별 종목) + 중요도 필터(전체/높음/보통). (2) 뉴스 카드 목록: 각 카드 — 종목 태그(pill badge), AI 요약(14px 볼드), 원문 제목(12px 회색), 출처+시간('N시간 전'), 중요도 뱃지(높음:빨간/보통:노란/낮음:회색). (3) 카드 클릭 → 원문 URL 새 탭 오픈. (4) 무한 스크롤 (Intersection Observer). (5) 빈 상태: '관심 종목의 뉴스가 없습니다. 종목을 추가해보세요'. (6) 모바일: 전체 너비 카드. 모바일 하단 네비의 📰 탭과 연결. 테스트: 뉴스 목록, 필터링, 카드 클릭, 빈 상태, 무한 스크롤.",
+      "status": "done",
+      "priority": 62,
+      "test_file": "tests/frontend/test_news_feed.py",
+      "depends_on": [
+        "news-003"
+      ]
+    },
+    {
+      "id": "news-005",
+      "name": "대시보드 뉴스 요약 위젯",
+      "description": "대시보드에 최신 뉴스 요약 위젯 추가. (1) 브리핑 카드 아래에 '📰 관심 종목 뉴스' 카드. (2) importance='high' 뉴스 최대 5건 표시. (3) 각 항목: 종목 태그 + AI 요약 1줄 + 시간. (4) 카드 하단: '전체 뉴스 보기' (→/news). (5) 뉴스 없으면 위젯 미표시. (6) API: GET /api/news?importance=high&per_page=5. 테스트: 위젯 렌더링, 5건 제한, 빈 상태 미표시, 링크.",
+      "status": "done",
+      "priority": 63,
+      "test_file": "tests/frontend/test_news_widget.py",
+      "depends_on": [
+        "news-003"
+      ]
+    },
+    {
+      "id": "trending-001",
+      "name": "트렌딩 종목 계산 로직 및 API",
+      "description": "트렌딩/인기 종목 계산 및 조회 API. 정상 응답 시 각 종목의 시세/이벤트 데이터를 포함하여 반환. (1) GET /api/trending — 최근 24시간 급변동 이벤트 발생 종목 (변동률 절대값 DESC). 응답: [{stock_id, stock_name, stock_code, market, change_pct, event_count(24h), latest_report_id}]. 최대 10건. (2) GET /api/popular — 추적 수 상위 종목. 응답: [{stock_id, stock_name, stock_code, market, tracking_count, latest_price, price_change_pct}]. 최대 10건. (3) 비인증 접근 가능 (회원가입 유도용). (4) Redis 캐싱: 5분 TTL (계산 비용 절약). Redis 다운 시 DB 직접 조회. (5) 데이터 부족 시 빈 배열 (에러 아님). 테스트: 트렌딩 정확성(변동률 순), 인기 종목(추적 수 순), 캐싱 히트/미스, 빈 데이터, Redis 다운 폴백.",
+      "status": "done",
+      "priority": 64,
+      "test_file": "tests/backend/test_trending_api.py",
+      "depends_on": []
+    },
+    {
+      "id": "trending-002",
+      "name": "인기 종목 API 보강",
+      "description": "인기/트렌딩 API에 추가 데이터 보강. (1) GET /api/popular 응답에 latest_change_reason 추가 (가장 최근 리포트의 1줄 요약, 없으면 null). (2) GET /api/trending 응답에 mini_summary 추가 (리포트 요약). (3) 두 API 모두 market 파라미터 지원 ('KR'|'US'|'ALL', 기본 'ALL'). (4) 일간/주간 전환: period 파라미터 ('daily'|'weekly', 기본 'daily'). weekly: 최근 7일 기준. (5) 인기 종목 최소 tracking_count >= 2 (본인만 추적하는 종목 제외). 테스트: 시장 필터, 기간 전환, 최소 추적 수 필터, 요약 데이터.",
+      "status": "done",
+      "priority": 65,
+      "test_file": "tests/backend/test_trending_enhanced.py",
+      "depends_on": [
+        "trending-001"
+      ]
+    },
+    {
+      "id": "trending-003",
+      "name": "트렌딩/인기 종목 UI 위젯",
+      "description": "대시보드 사이드바(데스크톱) 또는 상단(모바일)에 트렌딩/인기 위젯. (1) '🔥 트렌딩' / '⭐ 인기' 탭 전환. (2) 트렌딩: 종목명 + 변동률(색상) + 이벤트 수('📊 3건'). (3) 인기: 종목명 + 추적 수('👥 N명') + 현재가. (4) 각 항목 클릭 → /stocks/{stock_id}. (5) 최대 10개 표시. (6) 데스크톱: 대시보드 우측 사이드바 (280px 너비). 모바일: StockCard 목록 위 가로 스크롤 카드. (7) 비로그인에서도 표시 (랜딩 페이지에도 활용 가능). API 로딩 중 스켈레톤, API 에러 시 위젯 숨김 (에러가 대시보드 전체를 깨뜨리지 않도록). 테스트: 탭 전환, 항목 렌더링, 클릭 네비, 모바일 스크롤, API 에러 시 graceful 처리.",
+      "status": "done",
+      "priority": 66,
+      "test_file": "tests/frontend/test_trending_widget.py",
+      "depends_on": [
+        "trending-001",
+        "trending-002"
+      ]
+    },
+    {
+      "id": "trending-004",
+      "name": "트렌딩 종목 전체 페이지",
+      "description": "/trending 라우트 — 트렌딩/인기 종목 전체 페이지. (1) 상단: '🔥 트렌딩 종목' 제목 + 한국/미국/전체 탭 + 일간/주간 토글. (2) 트렌딩 섹션: 급변동 종목 카드 (종목명, 시장 뱃지, 변동률, 이유 요약, 리포트 링크). (3) 인기 섹션: 추적 수 상위 종목 리스트 (순위 번호, 종목명, 추적 수, 현재가). (4) 비인증 접근 가능. 비인증 시 하단: '종목을 추적하려면 가입하세요' CTA 배너. (5) 종목 클릭 → /stocks/{stock_id}. (6) 반응형: 모바일 전체 너비. API 에러 시 '데이터를 불러올 수 없습니다' 메시지 + 재시도 버튼. 데이터 없음: '아직 트렌딩 데이터가 없습니다'. 테스트: 페이지 렌더링, 탭/토글, 비인증 CTA, 종목 링크, API 에러 처리, 빈 데이터.",
+      "status": "done",
+      "priority": 67,
+      "test_file": "tests/frontend/test_trending_page.py",
+      "depends_on": [
+        "trending-003"
+      ]
+    },
+    {
+      "id": "calendar-001",
+      "name": "캘린더 이벤트 데이터 소스 연동",
+      "description": "주요 경제 이벤트 데이터 수집. (1) CalendarEvent 모델: id(PK), event_type('earnings'|'economic'|'central_bank'|'dividend'), title(VARCHAR 200), description(TEXT, nullable), event_date(DATE), market('KR'|'US'|'GLOBAL'), stock_id(FK, nullable — 특정 종목 관련 이벤트), source(VARCHAR 100), created_at. INDEX: (event_date, market). (2) Celery 태스크: collect_calendar_events — 매일 1회. (3) 한국: KRX 실적발표 일정, 한국은행 금통위 일정 (수동 시드 데이터 + 주기적 업데이트). (4) 미국: FOMC 일정(수동 시드), 주요 경제 지표(CPI, 고용 등 — 공개 API 또는 시드). (5) 실적 발표: watchlist 종목 중 실적 발표 예정인 종목 수집. 테스트: 모델 생성, 시드 데이터 로드, 수집 태스크.",
+      "status": "done",
+      "priority": 68,
+      "test_file": "tests/backend/test_calendar_model.py",
+      "depends_on": []
+    },
+    {
+      "id": "calendar-002",
+      "name": "캘린더 이벤트 API",
+      "description": "GET /api/calendar — 캘린더 이벤트를 날짜 범위로 조회하여 event_date ASC 정렬로 반환. (1) 쿼리: start_date, end_date (필수, YYYY-MM-DD), market('KR'|'US'|'ALL', 기본 'ALL'), event_type(선택, 필터). (2) 응답: [{id, event_type, title, description, event_date, market, stock_name(nullable)}]. (3) GET /api/calendar/week — 이번 주(월~금) 이벤트 반환. (4) 사용자 watchlist 종목 관련 이벤트에 is_tracked=true 플래그 추가. (5) 비인증: is_tracked 항상 false. (6) 날짜 범위 최대 90일 (초과 시 422 '최대 90일 범위만 조회 가능합니다'). start_date > end_date: 422. 테스트: 날짜 범위 조회, market 필터, type 필터, is_tracked true/false, 90일 초과 → 422, 역순 날짜 → 422.",
+      "status": "done",
+      "priority": 69,
+      "test_file": "tests/backend/test_calendar_api.py",
+      "depends_on": [
+        "calendar-001"
+      ]
+    },
+    {
+      "id": "calendar-003",
+      "name": "마켓 캘린더 월간 뷰 UI",
+      "description": "/calendar 라우트 — 월간 캘린더 뷰. (1) 월 네비게이션: '< 2026년 2월 >' 화살표 (이전/다음 월). (2) 7열(월~일) × 4~6행 그리드. 각 날짜 셀: 날짜 숫자 + 이벤트 dot(유형별 색상: earnings 초록, economic 파랑, central_bank 빨강, dividend 보라). (3) 날짜 셀 클릭 → 해당일 이벤트 목록 사이드 패널(데스크톱) 또는 바텀시트(모바일). (4) 이벤트 상세: title + event_type 뱃지 + description. 사용자 추적 종목 관련: 노란 하이라이트. (5) 한국/미국/전체 탭 상단. (6) 오늘 날짜 하이라이트(파란 원). API 에러 시 '캘린더를 불러올 수 없습니다' + 재시도 버튼. 이벤트 없는 날: dot 미표시, 클릭 시 '예정된 이벤트가 없습니다'. 테스트: 월간 그리드, 이벤트 dot, 날짜 클릭, 탭 전환, 오늘 표시, API 에러, 빈 날짜.",
+      "status": "done",
+      "priority": 70,
+      "test_file": "tests/frontend/test_calendar_view.py",
+      "depends_on": [
+        "calendar-002"
+      ]
+    },
+    {
+      "id": "calendar-004",
+      "name": "대시보드 이번 주 이벤트 위젯",
+      "description": "대시보드에 '📅 이번 주 주요 일정' 위젯. (1) API: GET /api/calendar/week. (2) 위젯 카드: 이번 주 이벤트를 날짜순으로 표시. 각 항목: 날짜(M/D 요일) + 이벤트 타입 아이콘 + 제목. (3) 사용자 추적 종목 관련 이벤트: '⭐' 표시. (4) 최대 7건 (초과 시 '캘린더에서 더보기' 링크 → /calendar). (5) 이벤트 없는 주: '이번 주 예정된 이벤트가 없습니다'. (6) 위젯 위치: 브리핑 카드와 뉴스 위젯 사이. 테스트: 위젯 렌더링, 날짜순 정렬, 추적 종목 표시, 빈 상태.",
+      "status": "done",
+      "priority": 71,
+      "test_file": "tests/frontend/test_calendar_widget.py",
+      "depends_on": [
+        "calendar-002"
+      ]
+    },
+    {
+      "id": "calendar-005",
+      "name": "캘린더 사용자 종목 하이라이트",
+      "description": "캘린더에서 사용자 추적 종목 관련 이벤트를 강조. GET /api/calendar 응답의 is_tracked 플래그 활용. (1) 월간 뷰: 추적 종목 관련 이벤트 날짜에 노란 배경 dot (일반 이벤트와 구분). (2) 이벤트 상세 패널: 추적 종목 이벤트에 '내 관심 종목' 뱃지 표시. (3) 상단 필터 추가: '내 종목만' 토글 — ON 시 is_tracked=true 이벤트만 표시. OFF 시 전체. (4) 추적 종목의 실적 발표 D-3: 대시보드 위젯에 '⚠️ [종목명] 실적 발표 3일 전' 강조. (5) 비로그인: 필터 비활성 + '로그인하면 관심 종목 일정을 확인할 수 있습니다' 안내. 추적 종목 없으면 필터 ON 시 빈 캘린더 + 안내 메시지. 테스트: 하이라이트 표시, 필터 토글, D-3 알림, 비로그인 비활성, 추적 종목 0개 시 빈 상태.",
+      "status": "done",
+      "priority": 72,
+      "test_file": "tests/frontend/test_calendar_highlight.py",
+      "depends_on": [
+        "calendar-002"
+      ]
+    },
+    {
+      "id": "infra-004",
+      "name": "중간 통합 검증 (Phase 1-3)",
+      "description": "품질+시세+히스토리 기능의 E2E 통합 검증. 시나리오: (1) API 에러 → CORS 헤더 포함 확인 (curl -I). (2) 잘못된 report_id → 404 + 표준 에러 포맷. (3) 대시보드 StockCard → 현재가+변동률+추적수 정상 표시. (4) StockCard ⋮ 메뉴 → 임계값 설정/알림 토글 동작. (5) 종목 클릭 → /stocks/{id} → 이벤트 타임라인 + 페이지네이션. (6) 빈 히스토리 → 빈 상태 UI. (7) 모바일: 바텀시트 메뉴. (8) 전체 회귀: 기존 검색, 관심목록 CRUD, 알림 설정 테스트 통과. 테스트: E2E 시나리오 스크립트.",
+      "status": "done",
+      "priority": 73,
+      "test_file": "tests/e2e/test_phase1_integration.py",
+      "depends_on": [
+        "ui-014",
+        "history-005"
+      ]
+    },
+    {
+      "id": "infra-005",
+      "name": "전체 기능 E2E 테스트",
+      "description": "프로젝트 전체 기능 통합 검증. 시나리오: (1) 비로그인 랜딩+트렌딩 확인. (2) 회원가입→온보딩→종목 추가→대시보드. (3) 리포트 조회→공유 URL 생성→시크릿 모드 비인증 조회. (4) 마이페이지→닉네임 설정→비밀번호 변경. (5) 종목 상세→토론 글 작성→댓글→수정/삭제. (6) 데일리 브리핑 카드→아카이브. (7) 뉴스 피드→필터링. (8) 트렌딩 페이지→종목 상세 이동. (9) 마켓 캘린더→날짜 클릭→이벤트 확인. (10) 모바일 전체 플로우. (11) SEO: 페이지별 title+OG meta. 실패 시나리오: 잘못된 URL → 404, 비인증 보호 경로 → 리다이렉트, 만료 공유 링크 → 410. 테스트: 전체 E2E 시나리오, 실패 시나리오 포함.",
+      "status": "done",
+      "priority": 74,
+      "test_file": "tests/e2e/test_full_integration.py",
+      "depends_on": [
+        "share-005",
+        "community-006"
+      ]
+    },
+    {
+      "id": "infra-006",
+      "name": "성능 최적화 및 보안 강화",
+      "description": "프로덕션 수준의 성능과 보안을 확보하여 서비스 안정성 보장. (1) Next.js: dynamic import로 무거운 컴포넌트 lazy loading (캘린더, 차트). next/image로 이미지 최적화. (2) 번들 분석: @next/bundle-analyzer로 불필요한 번들 확인+제거. 메인 번들 최대 200KB(gzip). (3) CSP 헤더: Content-Security-Policy meta 태그 (script-src 'self', style-src 'self' 'unsafe-inline'). (4) XSS 방지: 토론/댓글 content 렌더 시 HTML 이스케이프 확인 (React 기본 이스케이프 + dangerouslySetInnerHTML 미사용). (5) HTTPS only 쿠키 설정 (프로덕션). API 응답 500ms 이내 (p95). 테스트: 번들 사이즈 200KB 기준, CSP 헤더 존재, XSS 시도(<script>태그) 차단, API 응답 시간.",
+      "status": "done",
+      "priority": 75,
+      "test_file": "tests/e2e/test_performance_security.py",
+      "depends_on": [
+        "ui-030"
+      ]
+    },
+    {
+      "id": "infra-007",
+      "name": "최종 통합 검증 및 회귀 테스트",
+      "description": "전체 서비스 최종 검증. (1) 모든 기존 테스트 스위트 실행 (backend, frontend, structure, e2e). (2) 새로 추가된 모든 테스트 통과 확인. (3) 수동 스모크 테스트: 비로그인→랜딩→가입→온보딩→전체 기능 순회. (4) 모바일 스모크: 하단 탭→대시보드→뉴스→마이페이지→캘린더. (5) 성능: 대시보드 초기 로드 3초 이내, API 응답 500ms 이내. (6) 접근성: Tab 키로 전체 네비게이션 가능. (7) 이전 프로젝트 기능 회귀 없음 확인. 테스트: 전체 테스트 스위트 + 성능 기준.",
+      "status": "done",
+      "priority": 76,
+      "test_file": "tests/e2e/test_final_verification.py",
+      "depends_on": [
+        "infra-004",
+        "infra-005",
+        "infra-006",
+        "briefing-005",
+        "news-004",
+        "trending-004",
+        "calendar-005"
+      ]
+    }
+  ]
+}
