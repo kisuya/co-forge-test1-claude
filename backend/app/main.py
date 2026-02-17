@@ -19,6 +19,7 @@ from app.core.rate_limit import RateLimitMiddleware
 from app.api.auth import router as auth_router
 from app.api.cases import router as cases_router
 from app.api.deps import get_current_user
+from app.api.discussions import router as discussions_router
 from app.api.profile import router as profile_router
 from app.api.push import router as push_router
 from app.api.reports import router as reports_router
@@ -161,6 +162,7 @@ def create_app() -> FastAPI:
     app.include_router(cases_router)
     app.include_router(share_router)
     app.include_router(profile_router)
+    app.include_router(discussions_router)
 
     @app.get("/health")
     async def health() -> dict[str, str]:
