@@ -39,7 +39,7 @@ def get_current_user(
     try:
         payload = jwt.decode(token, settings.jwt_secret_key, algorithms=["HS256"])
     except jwt.ExpiredSignatureError:
-        raise_error(401, "Token expired")
+        raise_error(401, "Token expired", code="TOKEN_EXPIRED")
     except jwt.InvalidTokenError:
         raise_error(401, "Invalid token")
 

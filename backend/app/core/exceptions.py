@@ -17,22 +17,28 @@ _STATUS_ERROR_MAP: dict[int, str] = {
 }
 
 
-def error_detail(status_code: int, message: str) -> dict:
+def error_detail(status_code: int, message: str, *, code: str | None = None) -> dict:
     """Build a standardized error detail dict.
 
-    Format: {"error": "NotFound", "message": "Report not found", "status_code": 404}
+    Format: {"error": "NotFound", "message": "Report not found", "detail": ..., "status_code": 404}
+    When code is provided, detail is a dict with code and detail keys.
     """
     error_type = _STATUS_ERROR_MAP.get(status_code, "Error")
+    if code is not None:
+        detail_value: dict | str = {"code": code, "detail": message}
+    else:
+        detail_value = message
     return {
         "error": error_type,
         "message": message,
+        "detail": detail_value,
         "status_code": status_code,
     }
 
 
-def raise_error(status_code: int, message: str) -> None:
+def raise_error(status_code: int, message: str, *, code: str | None = None) -> None:
     """Raise an HTTPException with standardized error format."""
     raise HTTPException(
         status_code=status_code,
-        detail=error_detail(status_code, message),
+        detail=error_detail(status_code, message, code=code),
     )
