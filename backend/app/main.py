@@ -17,6 +17,7 @@ from app.core.exceptions import error_detail
 from app.core.logging import RequestLoggingMiddleware, configure_logging
 from app.core.rate_limit import RateLimitMiddleware
 from app.api.auth import router as auth_router
+from app.api.briefings import router as briefings_router
 from app.api.cases import router as cases_router
 from app.api.deps import get_current_user
 from app.api.discussions import router as discussions_router
@@ -155,6 +156,7 @@ def create_app() -> FastAPI:
         )
 
     app.include_router(auth_router)
+    app.include_router(briefings_router)
     app.include_router(stocks_router)
     app.include_router(watchlist_router)
     app.include_router(reports_router)

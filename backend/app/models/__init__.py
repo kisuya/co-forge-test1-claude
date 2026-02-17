@@ -1,4 +1,5 @@
 from app.models.discussion import Discussion, DiscussionComment
+from app.models.market_briefing import MarketBriefing
 from app.models.push_subscription import PushSubscription
 from app.models.report import PriceSnapshot, Report, ReportSource
 from app.models.stock import Stock
@@ -15,4 +16,5 @@ __all__ = [
     "PushSubscription",
     "Discussion",
     "DiscussionComment",
+    "MarketBriefing",
 ]
