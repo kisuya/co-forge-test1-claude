@@ -1,3 +1,4 @@
+from app.models.calendar_event import CalendarEvent
 from app.models.discussion import Discussion, DiscussionComment
 from app.models.market_briefing import MarketBriefing
 from app.models.news_article import NewsArticle
@@ -19,4 +20,5 @@ __all__ = [
     "DiscussionComment",
     "MarketBriefing",
     "NewsArticle",
+    "CalendarEvent",
 ]

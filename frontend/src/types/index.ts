@@ -207,3 +207,82 @@ export interface CommentItem {
   created_at: string;
   is_mine: boolean;
 }
+
+export interface NewsItem {
+  id: number;
+  stock_id: string | null;
+  stock_name: string | null;
+  title: string;
+  url: string;
+  source: string;
+  summary: string | null;
+  importance: string | null;
+  published_at: string | null;
+}
+
+export interface NewsFeedResponse {
+  items: NewsItem[];
+  page: number;
+  per_page: number;
+  total: number;
+  has_more: boolean;
+  message: string | null;
+}
+
+export interface BriefingKeyIssue {
+  title: string;
+  description: string;
+}
+
+export interface BriefingTopMover {
+  stock_name: string;
+  change_pct: number;
+  reason: string;
+}
+
+export interface BriefingResponse {
+  id: number;
+  market: string;
+  date: string;
+  summary: string | null;
+  key_issues: BriefingKeyIssue[] | null;
+  top_movers: BriefingTopMover[] | null;
+  created_at: string | null;
+}
+
+export interface BriefingTodayResponse extends BriefingResponse {
+  is_today: boolean;
+}
+
+export interface TrendingStock {
+  stock_id: string;
+  stock_name: string;
+  stock_code: string;
+  market: string;
+  change_pct: number;
+  event_count: number;
+  latest_report_id: string | null;
+  mini_summary: string | null;
+}
+
+export interface PopularStock {
+  stock_id: string;
+  stock_name: string;
+  stock_code: string;
+  market: string;
+  tracking_count: number;
+  latest_price: number | null;
+  price_change_pct: number | null;
+  latest_change_reason: string | null;
+}
+
+export interface CalendarEvent {
+  id: number;
+  event_type: string;
+  title: string;
+  description: string | null;
+  event_date: string;
+  market: string;
+  stock_name: string | null;
+  is_tracked: boolean;
+}

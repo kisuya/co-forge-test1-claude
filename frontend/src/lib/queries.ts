@@ -1,5 +1,5 @@
 import api from "./api";
-import type { Stock, WatchlistItem, Report, CasesResponse, StockDetail, StockHistoryResponse, ShareResponse, SharedReportResponse, ProfileResponse, ProfileReportItem, ProfileDiscussionItem, PaginatedResponse, DiscussionListResponse, DiscussionItem, CommentItem } from "@/types";
+import type { Stock, WatchlistItem, Report, CasesResponse, StockDetail, StockHistoryResponse, ShareResponse, SharedReportResponse, ProfileResponse, ProfileReportItem, ProfileDiscussionItem, PaginatedResponse, DiscussionListResponse, DiscussionItem, CommentItem, BriefingResponse, BriefingTodayResponse, NewsFeedResponse, TrendingStock, PopularStock, CalendarEvent } from "@/types";
 
 export const stocksApi = {
   search: (q: string, market?: string, signal?: AbortSignal) =>
@@ -75,6 +75,38 @@ export const discussionsApi = {
     api.post<CommentItem>(`/api/discussions/${discussionId}/comments`, { content }),
   deleteComment: (commentId: string) =>
     api.delete(`/api/comments/${commentId}`),
+};
+
+export const trendingApi = {
+  getTrending: (market: string = "ALL", period: string = "daily") =>
+    api.get<TrendingStock[]>("/api/trending", { params: { market, period } }),
+  getPopular: (market: string = "ALL", min_count: number = 1) =>
+    api.get<PopularStock[]>("/api/popular", { params: { market, min_count } }),
+};
+
+export const newsApi = {
+  list: (params?: { stock_id?: string; importance?: string; page?: number; per_page?: number }) =>
+    api.get<NewsFeedResponse>("/api/news", { params }),
+};
+
+export const briefingsApi = {
+  getToday: (market: string = "KR") =>
+    api.get<BriefingTodayResponse>("/api/briefings/today", {
+      params: { market },
+    }),
+  list: (market: string = "KR", limit: number = 30) =>
+    api.get<BriefingResponse[]>("/api/briefings", {
+      params: { market, limit },
+    }),
+};
+
+export const calendarApi = {
+  list: (startDate: string, endDate: string, market: string = "ALL", eventType?: string) =>
+    api.get<CalendarEvent[]>("/api/calendar", {
+      params: { start_date: startDate, end_date: endDate, market, ...(eventType && { event_type: eventType }) },
+    }),
+  getWeek: () =>
+    api.get<CalendarEvent[]>("/api/calendar/week"),
 };
 
 export const profileApi = {

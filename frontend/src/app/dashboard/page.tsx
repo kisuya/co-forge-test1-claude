@@ -6,6 +6,10 @@ import { isLoggedIn, clearTokens } from "@/lib/auth";
 import WatchlistManager from "@/components/WatchlistManager";
 import NotificationPanel from "@/components/NotificationPanel";
 import OnboardingOverlay from "@/components/OnboardingOverlay";
+import BriefingCard from "@/components/BriefingCard";
+import CalendarWidget from "@/components/CalendarWidget";
+import NewsWidget from "@/components/NewsWidget";
+import TrendingWidget from "@/components/TrendingWidget";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -74,7 +78,22 @@ export default function DashboardPage() {
             관심 종목을 관리하고 급변동을 확인하세요
           </p>
         </div>
-        <WatchlistManager onStockClick={handleStockClick} />
+        <BriefingCard />
+        <CalendarWidget />
+        <NewsWidget />
+        {/* Mobile: trending widget above stockcards */}
+        <div className="md:hidden">
+          <TrendingWidget />
+        </div>
+        <div className="flex gap-6">
+          <div className="flex-1 min-w-0">
+            <WatchlistManager onStockClick={handleStockClick} />
+          </div>
+          {/* Desktop: trending widget as sidebar */}
+          <div className="hidden md:block w-[280px] flex-shrink-0" data-testid="dashboard-sidebar">
+            <TrendingWidget />
+          </div>
+        </div>
       </main>
     </div>
   );
