@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import DateTime, Float, ForeignKey, JSON, Numeric, String, Text, func
+from sqlalchemy import DateTime, Float, ForeignKey, Index, JSON, Numeric, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -13,6 +13,9 @@ from app.db.database import Base
 
 class PriceSnapshot(Base):
     __tablename__ = "price_snapshots"
+    __table_args__ = (
+        Index("ix_price_snapshots_stock_captured", "stock_id", "captured_at"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
@@ -32,6 +35,9 @@ class PriceSnapshot(Base):
 
 class Report(Base):
     __tablename__ = "reports"
+    __table_args__ = (
+        Index("ix_reports_stock_status_created", "stock_id", "status", "created_at"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4

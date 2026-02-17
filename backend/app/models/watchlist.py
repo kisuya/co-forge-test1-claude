@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Float, ForeignKey, UniqueConstraint, func
+from sqlalchemy import DateTime, Float, ForeignKey, Index, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -14,6 +14,7 @@ class Watchlist(Base):
     __tablename__ = "watchlists"
     __table_args__ = (
         UniqueConstraint("user_id", "stock_id", name="uq_user_stock"),
+        Index("ix_watchlists_stock_id", "stock_id"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(

@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core.exceptions import error_detail
+from app.core.rate_limit import RateLimitMiddleware
 from app.api.auth import router as auth_router
 from app.api.cases import router as cases_router
 from app.api.deps import get_current_user
@@ -82,6 +83,8 @@ def create_app() -> FastAPI:
         debug=settings.debug,
         lifespan=lifespan,
     )
+
+    app.add_middleware(RateLimitMiddleware)
 
     app.add_middleware(
         CORSMiddleware,

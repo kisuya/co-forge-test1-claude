@@ -6,7 +6,7 @@ from typing import Any
 import bcrypt
 import jwt
 from fastapi import APIRouter, Depends, status
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
