@@ -14,6 +14,15 @@ export interface WatchlistItem {
   stock_name: string;
   stock_market: string;
   threshold: number;
+  alert_enabled: boolean;
+  latest_price: number | null;
+  price_change: number | null;
+  price_change_pct: number | null;
+  price_currency: string | null;
+  price_updated_at: string | null;
+  is_price_available: boolean;
+  price_freshness: string;
+  tracking_count: number;
 }
 
 export interface ReportSource {

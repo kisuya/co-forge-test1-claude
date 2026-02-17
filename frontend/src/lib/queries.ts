@@ -16,6 +16,8 @@ export const watchlistApi = {
   remove: (itemId: string) => api.delete(`/api/watchlist/${itemId}`),
   updateThreshold: (itemId: string, threshold: number) =>
     api.patch<WatchlistItem>(`/api/watchlist/${itemId}`, { threshold }),
+  updateAlert: (itemId: string, alert_enabled: boolean) =>
+    api.patch<WatchlistItem>(`/api/watchlist/${itemId}`, { alert_enabled }),
 };
 
 export const reportsApi = {

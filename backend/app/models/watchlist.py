@@ -27,6 +27,7 @@ class Watchlist(Base):
         UUID(as_uuid=True), ForeignKey("stocks.id", ondelete="CASCADE"), nullable=False
     )
     threshold: Mapped[float] = mapped_column(Float, default=3.0)
+    alert_enabled: Mapped[bool] = mapped_column(default=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

@@ -36,7 +36,8 @@ class WatchlistAddRequest(BaseModel):
 
 
 class WatchlistUpdateRequest(BaseModel):
-    threshold: float = Field(ge=1.0, le=10.0)
+    threshold: float | None = Field(default=None, ge=1.0, le=10.0)
+    alert_enabled: bool | None = None
 
 
 class WatchlistItemResponse(BaseModel):
@@ -46,6 +47,7 @@ class WatchlistItemResponse(BaseModel):
     stock_name: str
     stock_market: str
     threshold: float
+    alert_enabled: bool = True
     latest_price: float | None = None
     price_change: float | None = None
     price_change_pct: float | None = None
@@ -221,6 +223,7 @@ def _build_item_response(
         stock_name=stock.name,
         stock_market=stock.market,
         threshold=item.threshold,
+        alert_enabled=item.alert_enabled,
         tracking_count=tracking_count,
         **price_data,
     )
@@ -340,7 +343,10 @@ def update_threshold(
     if item is None:
         raise_error(404, "Watchlist item not found")
 
-    item.threshold = body.threshold
+    if body.threshold is not None:
+        item.threshold = body.threshold
+    if body.alert_enabled is not None:
+        item.alert_enabled = body.alert_enabled
     db.commit()
     db.refresh(item)
 
