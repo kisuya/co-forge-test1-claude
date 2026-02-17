@@ -24,6 +24,9 @@ class User(Base):
         DateTime(timezone=True), server_default=func.now()
     )
     settings: Mapped[dict | None] = mapped_column(JSON, default=dict)
+    nickname: Mapped[str | None] = mapped_column(
+        String(20), unique=True, nullable=True, index=True
+    )
 
     watchlists: Mapped[list["Watchlist"]] = relationship(  # noqa: F821
         back_populates="user", cascade="all, delete-orphan"
