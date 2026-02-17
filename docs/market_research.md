@@ -105,6 +105,42 @@
 ### 4. 커뮤니티 기능
 같은 종목을 보유한 투자자 간 토론 → 네트워크 효과로 사용자 고착도 증가.
 
+## Feature Gap Analysis (2026-02 추가 조사)
+
+### 경쟁사에 공통 존재하나 oh-my-stock에 없는 기능
+
+| # | 기능 | 경쟁사 예시 | 적합도 | 복잡도 | 기대 효과 |
+|---|------|-----------|--------|--------|-----------|
+| 1 | **시장 데일리 브리핑** | 증권플러스(하루 3회 이슈 푸시), 알파스퀘어(시장요약) | ★★★★★ | 낮음 | DAU 증가 (매일 확인 이유 제공) |
+| 2 | **관심 종목 뉴스 피드** | 증권플러스(GPT 뉴스 요약), 씽크풀(AI 이슈 포착) | ★★★★★ | 낮음 | 체류 시간 증가, 급변동 외 가치 |
+| 3 | **인기/트렌딩 종목** | Stocktwits(trending), 알파스퀘어(특징종목) | ★★★★☆ | 낮음 | 종목 발견, 바이럴 |
+| 4 | **마켓 캘린더** | TipRanks(earnings), 경제지표 일정 | ★★★★☆ | 중간 | "왜?"의 보완 → "앞으로 뭐가?" |
+| 5 | 종목 AI 점수 | TipRanks Smart Score, Danelfin AI Score | ★★★☆☆ | 중간 | 데이터 축적 필요, 추후 검토 |
+| 6 | 소셜 감성 분석 | Stocktwits, StockGeist, Uptrends.ai | ★★★☆☆ | 높음 | 한국 SNS 크롤링 법적 리스크 |
+| 7 | 매매일지/포트폴리오 | 키움증권(자동일지), 도미노 | ★★☆☆☆ | 높음 | 포지셔닝과 충돌 |
+| 8 | 차트/기술적 분석 | TradingView, 알파스퀘어 | ★☆☆☆☆ | 매우 높음 | 증권사 영역, Out of Scope |
+
+### 추가 경쟁사 분석 (2026-02)
+
+| 서비스 | 유형 | 핵심 기능 | 강점 | 약점 |
+|--------|------|-----------|------|------|
+| 증권플러스 | 통합 투자 앱 | GPT 뉴스 3줄 요약, 하루 3회 이슈 푸시, 11개 증권사 연동 | AI 요약 품질, 멀티 증권사 | 변동 "원인" 분석 없음 |
+| 알파스퀘어 | 트레이딩 플랫폼 | 시장요약, 특징종목, 매매신호, 투자리그 | 올인원, 게이미피케이션 | 정보 과잉 |
+| TipRanks | 애널리스트 평가 | Smart Score(8팩터), 컨센서스, 내부자 거래 | 데이터 기반 점수화 | 한국 미지원 |
+| Stocktwits | 투자자 소셜 | 트렌딩 종목, 실시간 감성(Bull/Bear) | 소셜 감성 데이터 | 노이즈, 영어만 |
+| Uptrends.ai | 트렌딩 추적 | 온라인 언급량, 감성 변화 알림 | 감성+가격 상관 분석 | 유료, 영어 |
+
+### 추가 Sources (2026-02)
+- [알파스퀘어 플랫폼](https://alphasquare.oopy.io/)
+- [씽크풀 AI픽워드 출시 (한국경제)](https://www.hankyung.com/article/202501083639O)
+- [증권플러스 Azure OpenAI 사례 (Microsoft)](https://www.microsoft.com/ko-kr/customers/story/18875-dunamu-azure-open-ai-service)
+- [TipRanks Smart Score](https://www.tipranks.com/glossary/s/smart-score)
+- [Best Stock Watchlist App 2026 (Gainify)](https://www.gainify.io/blog/best-stock-watchlist-app)
+- [Stocktwits](https://stocktwits.com/)
+- [Uptrends.ai](https://www.uptrends.ai/)
+- [StockGeist.ai](https://www.stockgeist.ai/)
+- [Danelfin](https://danelfin.com/)
+
 ## Sources
 
 ### 한국 시장 데이터
