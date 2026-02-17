@@ -21,11 +21,13 @@ from app.api.briefings import router as briefings_router
 from app.api.cases import router as cases_router
 from app.api.deps import get_current_user
 from app.api.discussions import router as discussions_router
+from app.api.news import router as news_router
 from app.api.profile import router as profile_router
 from app.api.push import router as push_router
 from app.api.reports import router as reports_router
 from app.api.share import router as share_router
 from app.api.stocks import router as stocks_router
+from app.api.trending import router as trending_router
 from app.api.watchlist import router as watchlist_router
 from app.config import get_settings
 from app.db.database import create_tables, get_session_factory
@@ -165,6 +167,8 @@ def create_app() -> FastAPI:
     app.include_router(share_router)
     app.include_router(profile_router)
     app.include_router(discussions_router)
+    app.include_router(news_router)
+    app.include_router(trending_router)
 
     @app.get("/health")
     async def health() -> dict[str, str]:
