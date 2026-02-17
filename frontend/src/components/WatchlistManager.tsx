@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { watchlistApi } from "@/lib/queries";
+import { addToast } from "@/lib/toast";
 import type { WatchlistItem } from "@/types";
 import StockCard from "./StockCard";
 import StockSearch from "./StockSearch";
@@ -36,8 +37,9 @@ export default function WatchlistManager({
     try {
       const resp = await watchlistApi.add(stockId);
       setItems((prev) => [...prev, resp.data]);
+      addToast("종목 추적이 시작되었습니다", "success");
     } catch {
-      setError("종목 추가에 실패했습니다.");
+      addToast("종목 추가에 실패했습니다", "error");
     }
   };
 

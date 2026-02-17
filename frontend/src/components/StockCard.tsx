@@ -207,7 +207,15 @@ export default function StockCard({
     >
       <div className="flex items-center justify-between">
         <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-gray-900 truncate">{item.stock_name}</h3>
+          <h3 className="font-semibold text-gray-900 truncate">
+            <span
+              onClick={(e) => { e.stopPropagation(); router.push(`/stocks/${item.stock_id}`); }}
+              className="cursor-pointer hover:underline"
+              data-testid="stock-name-link"
+            >
+              {item.stock_name}
+            </span>
+          </h3>
           <div className="flex items-center gap-1.5">
             <span className="text-sm text-gray-500">{item.stock_code}</span>
             <span className={`px-1.5 py-0.5 text-xs rounded font-medium ${MARKET_BADGE[item.stock_market] || "bg-gray-100 text-gray-600"}`} data-testid="card-market-badge">

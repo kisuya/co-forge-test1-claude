@@ -1,11 +1,17 @@
 import api from "./api";
-import type { Stock, WatchlistItem, Report, CasesResponse } from "@/types";
+import type { Stock, WatchlistItem, Report, CasesResponse, StockDetail, StockHistoryResponse, ShareResponse, SharedReportResponse } from "@/types";
 
 export const stocksApi = {
   search: (q: string, market?: string, signal?: AbortSignal) =>
     api.get<Stock[]>("/api/stocks/search", {
       params: { q, ...(market && { market }) },
       signal,
+    }),
+  getDetail: (stockId: string) =>
+    api.get<StockDetail>(`/api/stocks/${stockId}`),
+  getHistory: (stockId: string, page: number = 1, perPage: number = 20) =>
+    api.get<StockHistoryResponse>(`/api/stocks/${stockId}/history`, {
+      params: { page, per_page: perPage },
     }),
 };
 
@@ -43,4 +49,11 @@ export const pushApi = {
   unsubscribe: (endpoint: string) =>
     api.delete("/api/push/unsubscribe", { data: { endpoint } }),
   status: () => api.get<PushStatus>("/api/push/status"),
+};
+
+export const shareApi = {
+  create: (reportId: string) =>
+    api.post<ShareResponse>(`/api/reports/${reportId}/share`),
+  getShared: (token: string) =>
+    api.get<SharedReportResponse>(`/api/shared/${token}`),
 };

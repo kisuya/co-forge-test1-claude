@@ -1,11 +1,13 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import type { Report } from "@/types";
 import AlertBadge from "./AlertBadge";
 import SimilarCases from "./SimilarCases";
 
 interface ReportViewProps {
   report: Report;
+  shareMode?: boolean;
 }
 
 function confidenceLabel(c: string): string {
@@ -36,7 +38,8 @@ function statusLabel(s: string): string {
   }
 }
 
-export default function ReportView({ report }: ReportViewProps) {
+export default function ReportView({ report, shareMode = false }: ReportViewProps) {
+  const router = useRouter();
   const causes = report.analysis?.causes ?? [];
 
   return (
@@ -45,7 +48,17 @@ export default function ReportView({ report }: ReportViewProps) {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <div>
             <h2 className="text-lg sm:text-xl font-bold text-gray-900">
-              {report.stock_name}
+              {shareMode ? (
+                <span data-testid="report-stock-name">{report.stock_name}</span>
+              ) : (
+                <span
+                  onClick={() => router.push(`/stocks/${report.stock_id}`)}
+                  className="cursor-pointer hover:underline"
+                  data-testid="report-stock-link"
+                >
+                  {report.stock_name}
+                </span>
+              )}
               <span className="ml-2 text-sm font-normal text-gray-500">
                 {report.stock_code}
               </span>
@@ -123,9 +136,11 @@ export default function ReportView({ report }: ReportViewProps) {
         </div>
       )}
 
-      <div className="px-4 sm:px-6 py-4 border-t border-gray-100">
-        <SimilarCases reportId={report.id} />
-      </div>
+      {!shareMode && (
+        <div className="px-4 sm:px-6 py-4 border-t border-gray-100">
+          <SimilarCases reportId={report.id} />
+        </div>
+      )}
     </article>
   );
 }

@@ -76,3 +76,66 @@ export interface CasesResponse {
   cases: SimilarCaseItem[];
   message?: string;
 }
+
+export interface ShareResponse {
+  share_token: string;
+  share_url: string;
+  expires_at: string;
+}
+
+export interface SharedReportResponse {
+  stock_name: string;
+  stock_code: string;
+  market: string;
+  report: {
+    summary: string | null;
+    causes: Array<{ reason?: string; description?: string; confidence?: string; impact?: string }>;
+    sources: Array<{ source_type: string; title: string; url: string }>;
+    similar_cases: unknown[];
+    created_at: string | null;
+  };
+  shared_at: string;
+  expires_at: string;
+}
+
+export interface StockDetail {
+  id: string;
+  name: string;
+  code: string;
+  market: string;
+  latest_price: number | null;
+  price_change_pct: number | null;
+  price_currency: string | null;
+  price_freshness: string;
+  tracking_count: number;
+  tracking_since: string | null;
+  is_tracked_by_me: boolean;
+}
+
+export interface HistoryEvent {
+  id: string;
+  date: string;
+  change_pct: number;
+  direction: "up" | "down";
+  summary: string | null;
+  confidence: "high" | "medium" | "low" | null;
+  report_id: string;
+}
+
+export interface HistoryPagination {
+  page: number;
+  per_page: number;
+  total: number;
+  has_more: boolean;
+}
+
+export interface StockHistoryResponse {
+  stock_id: string;
+  stock_name: string;
+  stock_code: string;
+  market: string;
+  tracking_since: string | null;
+  events: HistoryEvent[];
+  pagination: HistoryPagination;
+  message: string | null;
+}
