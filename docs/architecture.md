@@ -8,9 +8,11 @@
 [Browser] → [Next.js Frontend] → [FastAPI Backend] → [PostgreSQL]
                                         ↓
                                   [Background Workers]
-                                   ├── 주가 수집기
-                                   ├── 뉴스/공시 수집기
-                                   └── AI 분석 엔진
+                                   ├── 한국 주가 수집기 (PyKRX)
+                                   ├── 미국 주가 수집기 (yfinance)
+                                   ├── 뉴스/공시 수집기 (한국 + 영문)
+                                   ├── AI 분석 엔진 + 유사 케이스 매칭
+                                   └── 푸시 발송 워커 (Web Push)
 ```
 
 ## Tech Stack
@@ -24,6 +26,8 @@
 | Task Queue | Celery + Redis | 주기적 데이터 수집, 비동기 리포트 생성 |
 | AI | Claude API (Anthropic) | 한국어 분석 품질 우수, 긴 컨텍스트 지원 |
 | 한국 데이터 | DART OpenAPI + KRX API + PyKRX | 공시 + 시세 + 뉴스 |
+| 미국 데이터 | yfinance + NewsAPI | 시세 + 영문 뉴스. yfinance는 무료, NewsAPI 무료 플랜 100건/일 |
+| Push | pywebpush + Service Worker | Web Push API 표준. VAPID 키 기반 인증 |
 | ORM | SQLAlchemy 2.0 | FastAPI와 호환, 타입 지원 |
 | Auth | JWT (PyJWT) + bcrypt | 간단하고 검증된 인증 |
 
@@ -56,3 +60,15 @@
 **이유**: 리포트 분석 결과의 구조가 유동적 (원인 수, 출처 수 가변). JSONB로 유연하게 저장하되 PostgreSQL의 쿼리 기능 유지
 **트레이드오프**: JSONB 내부 쿼리 성능 제한
 **재검토 시점**: 리포트 검색 기능 고도화 시
+
+### 한국/미국 종목 통합 모델
+**선택**: 동일 stocks 테이블에 market 컬럼(KRX/NYSE/NASDAQ)으로 구분
+**대안**: 시장별 별도 테이블
+**이유**: 관심목록, 리포트, 수집기 등 하위 로직이 시장과 무관하게 stock_id만 참조하면 되므로 단일 테이블이 간결
+**트레이드오프**: 한국 종목(name_kr 등)과 미국 종목의 필드 차이를 nullable로 처리
+
+### 유사 케이스 매칭 — DB 기반 검색
+**선택**: PriceSnapshot 테이블에서 직접 SQL 쿼리로 유사 변동률 검색
+**대안**: 벡터 DB, 전용 시계열 DB
+**이유**: MVP 단계에서 데이터량이 적어 SQL로 충분. 추가 인프라 불필요
+**재검토 시점**: 종목 수 1,000+ & 일일 스냅샷 10,000+ 시 성능 저하 가능

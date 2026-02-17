@@ -1,0 +1,26 @@
+Project: project-002 - p1-ux-expansion
+Started: 2026-02-17
+Status: Not started
+Agent: (to be assigned)
+
+Features: 24 pending
+Previous: docs/projects/mvp-core-features/retrospective.md
+
+Phase 1 (8): 한국 주식 사용 완성도 — infra-002~infra-003
+Phase 2 (4): 알림 시스템 — alert-001~alert-004
+Phase 3 (7): 미국 주식 — stock-002~stock-004
+Phase 4 (5): 유사 케이스 — case-001~case-004
+
+No progress yet. Run init.sh to begin.
+
+---
+Session: 1 (2026-02-17)
+Features done (all-time): infra-002, auth-004, ui-004, ui-005, ui-006, ui-007, ui-010, infra-003, alert-001, alert-002, alert-003, alert-004, stock-002, stock-003, data-004, data-005, analysis-003, ui-008, stock-004, case-001, case-002, case-003, ui-009, case-004
+Features remaining: 0 pending, 0 blocked
+Test status: all pass
+Recent commits:
+2299b51 Upgrade forge harness and align AGENTS.md
+7e0ff10 Align docs with forge-define standards
+d57eb82 Upgrade forge harness
+193df80 Move project files to docs/projects/ and harden forge scripts
+63dca1f Handle git-write-blocked environments (Codex sandbox)

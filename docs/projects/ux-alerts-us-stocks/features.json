@@ -1,0 +1,223 @@
+{
+  "project": "project-002",
+  "goal": "P0 품질 보강 + P1 전체 기능 구현. 매 세션 완료 시 실제 사용자가 체감할 수 있는 완성도 확보.",
+  "agent": "",
+  "features": [
+    {
+      "id": "infra-002",
+      "name": "CORS 및 시드 데이터 통합 수정",
+      "status": "done",
+      "priority": 1,
+      "test_file": "tests/backend/test_integration_startup.py",
+      "depends_on": [],
+      "description": "서비스 기동 시 seed_stocks()가 자동 실행되어 stocks 테이블에 KRX 종목 데이터가 존재하는지 검증. seed가 빈 DB에서만 동작하고 중복 실행 시 skip하는 멱등성 확보. CORS 미들웨어가 localhost:3000과 프로덕션 origin을 허용하는지 검증. 테스트: 앱 기동 → /api/stocks/search?q=삼성 호출 → 결과 반환 확인. 실패 시 명확한 에러 로그."
+    },
+    {
+      "id": "auth-004",
+      "name": "JWT 보안 강화",
+      "status": "done",
+      "priority": 2,
+      "test_file": "tests/backend/test_jwt_security.py",
+      "depends_on": [],
+      "description": "JWT_SECRET_KEY 환경변수 최소 32바이트 강제. 미설정 시 앱 기동 단계에서 ValueError와 설정 안내 메시지 출력 후 종료 (silent fail 금지). 테스트 환경용 conftest.py에 안전한 테스트 키(32바이트 이상) 설정. InsecureKeyLengthWarning 0건 달성. 토큰 만료 시 401 + {\"detail\": \"Token expired\", \"code\": \"TOKEN_EXPIRED\"} 반환하여 프론트엔드가 자동 갱신 트리거 가능."
+    },
+    {
+      "id": "ui-004",
+      "name": "종목 검색 디바운스 및 자동검색",
+      "status": "done",
+      "priority": 3,
+      "test_file": "tests/frontend/test_search_debounce.py",
+      "depends_on": [],
+      "description": "StockSearch 컴포넌트 리팩토링. 검색어 입력 시 300ms 디바운스 후 자동 검색 실행. 기존 수동 검색 버튼 제거. 2글자 미만 입력 시 검색 미실행 + '2글자 이상 입력하세요' 힌트 표시. 타이핑 중 스피너 로딩 인디케이터 표시 (검색 입력 오른쪽). API 호출 중 새 입력 발생 시 이전 요청 abort (AbortController). 검색어 없을 때 입력 필드 placeholder: '종목명 또는 코드 검색'."
+    },
+    {
+      "id": "ui-005",
+      "name": "검색 결과 UX 개선",
+      "status": "done",
+      "priority": 4,
+      "test_file": "tests/frontend/test_search_ux.py",
+      "depends_on": ["ui-004"],
+      "description": "검색 결과 드롭다운에서 검색어와 일치하는 부분 bold 하이라이트 (종목명, 종목코드 모두). 결과 0건 시 '검색 결과가 없습니다' + 종목코드 직접 입력 안내. 종목 추가(+) 클릭 시: 해당 항목에 체크 애니메이션 → 500ms 후 검색 결과 자동 닫힘 → 관심 목록에 추가된 종목 하이라이트. 검색 영역 외부 클릭 또는 Escape 키로 결과 닫힘. 이미 관심 목록에 있는 종목은 '추가됨' 뱃지 표시 + 추가 버튼 비활성화."
+    },
+    {
+      "id": "ui-006",
+      "name": "최근 검색어 기능",
+      "status": "done",
+      "priority": 5,
+      "test_file": "tests/frontend/test_recent_searches.py",
+      "depends_on": ["ui-004"],
+      "description": "최근 검색어 localStorage 저장 (최대 10개, FIFO). 검색 입력 포커스 시 + 입력값 비어있을 때 최근 검색어 드롭다운 표시 (시계 아이콘 + 검색어). 최근 검색어 클릭 시 해당 검색어로 즉시 검색 실행. 각 항목 오른쪽 X 버튼으로 개별 삭제. 검색어가 실제 결과를 반환했을 때만 최근 검색어에 저장 (빈 결과 검색어 미저장). '최근 검색어 전체 삭제' 링크 하단 배치."
+    },
+    {
+      "id": "ui-007",
+      "name": "급변동 임계값 설정 UI",
+      "status": "done",
+      "priority": 6,
+      "test_file": "tests/frontend/test_threshold_settings.py",
+      "depends_on": [],
+      "description": "관심 목록 StockCard에 설정(⚙️) 아이콘 추가. 클릭 시 인라인 임계값 편집 패널 표시: 현재 임계값 숫자 표시 + +/- 스텝퍼(0.5% 단위, 1%-10% 범위). 변경 시 PATCH /api/watchlist/{id} 즉시 호출. 성공: 초록색 체크 피드백 1초 표시. 실패: 빨간색 에러 메시지 + 이전 값 롤백. 네트워크 오류 시 '연결 실패, 다시 시도해주세요' 토스트. 기본값 3%는 회색 텍스트로 표시."
+    },
+    {
+      "id": "ui-010",
+      "name": "전역 에러 및 로딩 UX",
+      "status": "done",
+      "priority": 7,
+      "test_file": "tests/frontend/test_global_ux.py",
+      "depends_on": [],
+      "description": "전역 에러 바운더리: 예상치 못한 에러 발생 시 '문제가 발생했습니다' 화면 + '새로고침' 버튼 (white screen of death 방지). API 에러 토스트 시스템: 화면 상단에 3초간 에러 메시지 표시 후 자동 사라짐 (빨간 배경). 401 에러 시 자동 토큰 갱신 시도 → 실패 시 로그인 페이지 리다이렉트. 페이지 전환 시 상단 프로그레스 바. 빈 상태(empty state) 처리: 관심 목록 0개 시 '종목을 추가해보세요' + 검색 유도 일러스트, 리포트 0개 시 '아직 분석 리포트가 없습니다' 안내."
+    },
+    {
+      "id": "infra-003",
+      "name": "Phase 1 통합 검증 (한국 주식 사용 시나리오)",
+      "status": "done",
+      "priority": 8,
+      "test_file": "tests/e2e/test_phase1_korean_stock.py",
+      "depends_on": ["infra-002", "auth-004", "ui-005", "ui-006", "ui-007", "ui-010"],
+      "description": "실제 서비스 기동(백엔드+프론트엔드) 후 사용자 시나리오 검증. 시나리오: (1) 회원가입 → 로그인 → 대시보드 진입 (2) '삼성전자' 검색 → 디바운스 동작 → 결과 하이라이트 확인 → 관심목록 추가 → 결과 자동 닫힘 (3) 임계값 5%로 변경 → 성공 피드백 확인 (4) 관심목록 비어있을 때 empty state 확인 (5) 잘못된 토큰으로 API 호출 → 에러 처리 정상 동작. 검증 방법: Playwright 또는 수동 체크리스트."
+    },
+    {
+      "id": "alert-001",
+      "name": "푸시 구독 모델 및 API",
+      "status": "done",
+      "priority": 9,
+      "test_file": "tests/backend/test_api_push.py",
+      "depends_on": [],
+      "description": "PushSubscription 모델: user_id(FK), endpoint(VARCHAR 500, UNIQUE), p256dh(VARCHAR 255), auth(VARCHAR 255), created_at, is_active(BOOLEAN default true). API: POST /api/push/subscribe — 구독 정보 저장 (같은 endpoint 재등록 시 upsert). DELETE /api/push/unsubscribe — endpoint 기준 비활성화 (is_active=false, 물리 삭제 아님). GET /api/push/status — 현재 사용자 구독 상태 반환 ({subscribed: bool, endpoint_count: int}). VAPID 키 생성 및 환경변수 설정 (VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_CONTACT). 인증 필수, 미인증 시 401."
+    },
+    {
+      "id": "alert-002",
+      "name": "급변동 푸시 발송 워커",
+      "status": "done",
+      "priority": 10,
+      "test_file": "tests/backend/test_push_worker.py",
+      "depends_on": ["alert-001"],
+      "description": "급변동 감지(data-002) 이벤트 후 트리거되는 Celery 태스크. 해당 종목을 관심목록에 등록하고 is_active=true인 구독이 있는 사용자에게 Web Push 발송. pywebpush 라이브러리 사용. 알림 페이로드: {title: '📈 삼성전자 +5.2%', body: '급변동이 감지되었습니다. 탭하여 리포트를 확인하세요', url: '/reports/stock/{stock_id}'}. 발송 실패 시 3회 재시도(지수 백오프 1s/2s/4s). HTTP 410 Gone 응답(만료 구독) 시 is_active=false 자동 처리. 발송 결과 로깅: 성공/실패/만료 건수."
+    },
+    {
+      "id": "alert-003",
+      "name": "알림 설정 UI 및 Service Worker",
+      "status": "done",
+      "priority": 11,
+      "test_file": "tests/frontend/test_alert_settings.py",
+      "depends_on": ["alert-002"],
+      "description": "대시보드 헤더에 알림 벨(🔔) 아이콘 추가. 클릭 시 알림 설정 사이드 패널 슬라이드. 글로벌 알림 ON/OFF 토글: ON 시 브라우저 알림 권한 요청 팝업 → 허용 시 subscribe API 호출 + 성공 메시지, 거부 시 '브라우저 설정에서 알림을 허용해주세요' 안내 + 설정 열기 가이드 링크. 종목별 알림 개별 토글 (관심목록 종목마다). Service Worker 등록: public/sw.js에 push 이벤트 리스너, 알림 클릭 시 해당 리포트 페이지로 이동. 오프라인일 때 '오프라인 상태입니다' 표시."
+    },
+    {
+      "id": "alert-004",
+      "name": "Phase 2 통합 검증 (알림 시나리오)",
+      "status": "done",
+      "priority": 12,
+      "test_file": "tests/e2e/test_phase2_alerts.py",
+      "depends_on": ["alert-003"],
+      "description": "실제 서비스 기동 후 알림 시나리오 검증. 시나리오: (1) 대시보드에서 알림 벨 클릭 → 설정 패널 열림 (2) 글로벌 알림 ON → 브라우저 권한 요청 정상 동작 (3) 종목별 알림 토글 ON/OFF 동작 확인 (4) Push 구독 API 호출 → DB에 구독 정보 저장 확인 (5) 급변동 감지 시뮬레이션 → 푸시 발송 워커 실행 → 알림 수신 확인 (mock 또는 실제). Service Worker 등록 상태 확인. 모든 Phase 1 기능도 여전히 정상 동작(회귀 없음)."
+    },
+    {
+      "id": "stock-002",
+      "name": "미국 주식 시드 데이터",
+      "status": "done",
+      "priority": 13,
+      "test_file": "tests/backend/test_us_stock_seed.py",
+      "depends_on": [],
+      "description": "S&P 500 주요 종목(최소 100개) 시드 데이터. 각 종목: code(AAPL), name(Apple Inc.), name_kr(애플), market(NYSE/NASDAQ), sector(Technology). seed_us_stocks() 함수: 멱등성 보장(중복 실행 시 skip), seed_stocks()와 독립 실행 가능. 앱 기동 시 seed_stocks() 직후 자동 실행. stocks 테이블에 market 컬럼으로 KRX/NYSE/NASDAQ 구분. 기존 KRX 종목 검색에 영향 없음 확인."
+    },
+    {
+      "id": "stock-003",
+      "name": "미국 주식 검색 및 등록",
+      "status": "done",
+      "priority": 14,
+      "test_file": "tests/backend/test_api_us_stocks.py",
+      "depends_on": ["stock-002"],
+      "description": "GET /api/stocks/search에 market 쿼리 파라미터 추가: kr(한국만), us(미국만), all(전체, 기본값은 기존 호환을 위해 kr 유지). 한글 별명 검색 지원: '애플' 입력 → AAPL 반환, '테슬라' → TSLA. 영문 검색: 'Apple' 또는 'AAPL' 입력 → 결과 반환. 검색 결과에 market 필드 포함하여 프론트엔드가 시장 구분 가능. 관심목록에 미국 종목 추가 가능 (기존 POST /api/watchlist 변경 없이 stock_id만 넘기면 동작). 기존 한국 주식 검색 API 하위 호환 완전 보장."
+    },
+    {
+      "id": "data-004",
+      "name": "미국 주가 수집기",
+      "status": "done",
+      "priority": 15,
+      "test_file": "tests/backend/test_us_price_collector.py",
+      "depends_on": ["stock-002"],
+      "description": "yfinance 라이브러리로 미국 종목 현재가 수집. Celery periodic task로 미국장 시간(09:30-16:00 ET = KST 23:30-06:00, 서머타임 고려) 중 30분 간격 실행. 장 마감 후에는 수집 중단 (불필요한 API 호출 방지). PriceSnapshot에 저장 (기존 한국 수집기와 동일 모델 사용). 기존 한국 수집기(price_collector)와 독립 실행 — 서로 간섭 없음. yfinance 호출 실패 시 로그 남기고 skip (전체 수집이 멈추면 안 됨). rate limit 고려: 종목 간 100ms 딜레이."
+    },
+    {
+      "id": "data-005",
+      "name": "미국 뉴스 수집기",
+      "status": "done",
+      "priority": 16,
+      "test_file": "tests/backend/test_us_news_collector.py",
+      "depends_on": ["stock-002"],
+      "description": "영문 뉴스 API 클라이언트 (NewsAPI 또는 대안). 미국 종목 급변동 감지 시 해당 종목 관련 영문 뉴스 최근 24시간분 수집. 뉴스 항목: title, url, source, published_at, summary. ReportSource에 source_type='us_news'로 저장. API 키 환경변수 관리 (NEWS_API_KEY). API 호출 실패 시 빈 리스트 반환 + 로그 (뉴스 없이도 리포트 생성은 진행). 일일 호출 제한(무료 플랜 100건/일) 고려한 캐싱: 같은 종목 1시간 내 재요청 시 캐시 반환."
+    },
+    {
+      "id": "analysis-003",
+      "name": "미국 주식 분석 리포트 (한국어)",
+      "status": "done",
+      "priority": 17,
+      "test_file": "tests/backend/test_us_analysis.py",
+      "depends_on": ["data-004", "data-005"],
+      "description": "미국 종목 급변동 감지 → 영문 뉴스 수집 → Claude API로 한국어 리포트 생성. 프롬프트에 미국 시장 컨텍스트 포함: 프리마켓/애프터마켓 영향, 미국 경제지표(FOMC, CPI 등) 관련성, 달러 환율 영향. 리포트 출력은 한국어, 원문 뉴스 링크는 영문 그대로 보존. 기존 한국 주식 분석 파이프라인과 동일한 Report 모델 사용 (analysis JSONB에 market 필드 추가로 구분). 뉴스 0건인 경우에도 주가 데이터만으로 기본 리포트 생성 ('관련 뉴스를 찾지 못했습니다' 명시)."
+    },
+    {
+      "id": "ui-008",
+      "name": "미국 주식 통합 UI",
+      "status": "done",
+      "priority": 18,
+      "test_file": "tests/frontend/test_us_stock_ui.py",
+      "depends_on": ["stock-003", "analysis-003"],
+      "description": "종목 검색에 시장 탭 추가: [전체] [한국 🇰🇷] [미국 🇺🇸]. 탭 전환 시 market 파라미터 변경하여 재검색. 대시보드 StockCard에 시장 뱃지 (KRX 파란색 / NYSE 초록색 / NASDAQ 보라색). 미국 종목: 달러 가격 표시 + 원화 환산 참고 가격 (작은 글씨, 고정 환율 또는 간단 API). 리포트 목록/상세에서 한국/미국 종목 구분 없이 통합 표시 (시장 뱃지로만 구분). 미국 종목 검색 시 한글 별명(애플)과 영문(AAPL, Apple) 모두 하이라이트."
+    },
+    {
+      "id": "stock-004",
+      "name": "Phase 3 통합 검증 (미국 주식 시나리오)",
+      "status": "done",
+      "priority": 19,
+      "test_file": "tests/e2e/test_phase3_us_stocks.py",
+      "depends_on": ["ui-008"],
+      "description": "실제 서비스 기동 후 미국 주식 시나리오 검증. 시나리오: (1) 검색 탭에서 '미국' 선택 → '애플' 검색 → AAPL 결과 반환 + 한글 하이라이트 (2) AAPL 관심목록 추가 → 대시보드에 NYSE 뱃지와 함께 표시 (3) 한국 종목과 미국 종목이 대시보드에 혼합 표시 정상 확인 (4) 미국 종목 급변동 시뮬레이션 → 뉴스 수집 → 한국어 리포트 생성 확인 (5) 리포트 상세 페이지에서 영문 뉴스 출처 링크 정상 표시. 모든 Phase 1-2 기능도 정상 동작(회귀 없음)."
+    },
+    {
+      "id": "case-001",
+      "name": "유사 과거 변동 매칭 엔진",
+      "status": "done",
+      "priority": 20,
+      "test_file": "tests/backend/test_case_matching.py",
+      "depends_on": [],
+      "description": "SimilarCaseService 클래스: find_similar_cases(stock_id, change_pct, exclude_date) → List[SimilarCase]. 동일 종목의 과거 PriceSnapshot에서 유사 변동률 검색 (기준: ±1.5%p 범위). 유사도 점수 산출: abs(change_pct 차이) * 0.6 + abs(volume 비율 차이) * 0.4 (변동률 유사도 가중). 상위 3건 반환 (3건 미만이면 있는 만큼만). 최소 30일 이전 데이터만 대상 (최근 데이터 제외). 같은 이벤트 연속일(±2일) 중복 제거. 결과: [{date, change_pct, volume, similarity_score}]. 데이터 부족 시 빈 리스트 반환 (에러 아님)."
+    },
+    {
+      "id": "case-002",
+      "name": "이후 주가 추이 데이터 및 API",
+      "status": "done",
+      "priority": 21,
+      "test_file": "tests/backend/test_case_trends.py",
+      "depends_on": ["case-001"],
+      "description": "유사 사례 발생 이후 1주(5거래일)/1개월(20거래일) 주가 추이 계산. 각 거래일의 기준일 대비 누적 변동률 배열로 반환: [{day: 1, change_pct: +1.2}, {day: 2, change_pct: +0.8}, ...]. PriceSnapshot 데이터 부족 시 가용한 만큼만 반환 + 부족 표시. API: GET /api/cases/{report_id} — 리포트에 연결된 유사 사례 3건 + 각각의 추이 데이터. 리포트가 없거나 유사 사례가 없으면 {cases: [], message: '유사한 과거 사례를 찾지 못했습니다'}."
+    },
+    {
+      "id": "case-003",
+      "name": "유사 케이스 리포트 통합",
+      "status": "done",
+      "priority": 22,
+      "test_file": "tests/backend/test_case_report_integration.py",
+      "depends_on": ["case-002"],
+      "description": "리포트 생성 파이프라인(analysis-002)에 유사 사례 분석 단계 추가. 급변동 감지 → 뉴스 수집 → LLM 분석 → [유사 사례 매칭 + 추이 조회] → Report 완성. LLM 프롬프트에 유사 사례 데이터 포함: '과거 유사 사례 N건에서 1주 후 평균 +X%, 1개월 후 평균 +Y%'. LLM이 현재 vs 과거 유사점/차이점 분석 텍스트 생성. Report.analysis JSONB에 similar_cases 섹션 추가: [{date, change_pct, trend_1w, trend_1m, similarity_score}]. 유사 사례 0건이면 similar_cases: [] + LLM에 '유사 사례 데이터 부족' 안내."
+    },
+    {
+      "id": "ui-009",
+      "name": "유사 케이스 UI",
+      "status": "done",
+      "priority": 23,
+      "test_file": "tests/frontend/test_case_ui.py",
+      "depends_on": ["case-003"],
+      "description": "리포트 상세 페이지 하단에 '📊 과거 유사 사례' 섹션 추가 (접이식, 기본 펼침). 각 사례 카드: 날짜, 당시 변동률(색상 구분: 상승 빨강/하락 파랑), 유사도 점수(높음/중간/낮음 뱃지). 이후 추이: '1주 후 +5.2%' / '1개월 후 -3.1%' 수치 표시 (상승 빨강, 하락 파랑). LLM 분석의 유사점/차이점 텍스트 표시 (각 사례 하단). 유사 사례 0건: '이 종목의 유사한 과거 변동 사례가 아직 충분하지 않습니다' 안내 + '데이터가 쌓이면 자동으로 표시됩니다' 부연. 모바일에서 카드 세로 스택 레이아웃."
+    },
+    {
+      "id": "case-004",
+      "name": "Phase 4 통합 검증 (유사 케이스 시나리오)",
+      "status": "done",
+      "priority": 24,
+      "test_file": "tests/e2e/test_phase4_similar_cases.py",
+      "depends_on": ["ui-009"],
+      "description": "실제 서비스 기동 후 유사 케이스 시나리오 검증. 시나리오: (1) 기존 리포트 상세 페이지 진입 → '과거 유사 사례' 섹션 표시 확인 (2) 유사 사례 카드: 날짜, 변동률, 추이 수치 정상 표시 (3) 유사 사례 0건인 리포트에서 빈 상태 안내 메시지 확인 (4) 모바일 뷰에서 레이아웃 깨짐 없음 (5) 새로 급변동 감지 시뮬레이션 → 리포트 생성 → similar_cases 섹션 자동 포함 확인. 전체 앱 회귀 테스트: Phase 1-3 모든 기능 정상 동작."
+    }
+  ]
+}
