@@ -1,5 +1,5 @@
 import api from "./api";
-import type { Stock, WatchlistItem, Report, CasesResponse, StockDetail, StockHistoryResponse, ShareResponse, SharedReportResponse } from "@/types";
+import type { Stock, WatchlistItem, Report, CasesResponse, StockDetail, StockHistoryResponse, ShareResponse, SharedReportResponse, ProfileResponse, ProfileReportItem, ProfileDiscussionItem, PaginatedResponse } from "@/types";
 
 export const stocksApi = {
   search: (q: string, market?: string, signal?: AbortSignal) =>
@@ -56,4 +56,23 @@ export const shareApi = {
     api.post<ShareResponse>(`/api/reports/${reportId}/share`),
   getShared: (token: string) =>
     api.get<SharedReportResponse>(`/api/shared/${token}`),
+};
+
+export const profileApi = {
+  get: () => api.get<ProfileResponse>("/api/profile"),
+  updateNickname: (nickname: string | null) =>
+    api.put<ProfileResponse>("/api/profile", { nickname }),
+  changePassword: (currentPassword: string, newPassword: string) =>
+    api.put("/api/profile/password", {
+      current_password: currentPassword,
+      new_password: newPassword,
+    }),
+  getReports: (page: number = 1, perPage: number = 10) =>
+    api.get<PaginatedResponse<ProfileReportItem>>("/api/profile/reports", {
+      params: { page, per_page: perPage },
+    }),
+  getDiscussions: (page: number = 1, perPage: number = 10) =>
+    api.get<PaginatedResponse<ProfileDiscussionItem>>("/api/profile/discussions", {
+      params: { page, per_page: perPage },
+    }),
 };

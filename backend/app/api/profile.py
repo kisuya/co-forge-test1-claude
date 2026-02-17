@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -13,6 +13,7 @@ from app.api.deps import get_current_user, get_db
 from app.core.exceptions import raise_error
 from app.core.sanitize import strip_html_tags
 from app.models.report import Report
+from app.models.stock import Stock
 from app.models.user import User
 from app.models.watchlist import Watchlist
 
@@ -161,3 +162,103 @@ def change_password(
     db.commit()
 
     return {"message": "비밀번호가 변경되었습니다"}
+
+
+@router.get("/reports")
+def get_profile_reports(
+    page: int = Query(1, ge=1),
+    per_page: int = Query(10, ge=1, le=50),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Any:
+    """Get user's watchlist stock reports (paginated)."""
+    stock_ids_subq = (
+        select(Watchlist.stock_id).where(Watchlist.user_id == user.id).subquery()
+    )
+
+    base_query = select(Report).join(
+        Stock, Report.stock_id == Stock.id
+    ).where(
+        Report.stock_id.in_(select(stock_ids_subq)),
+        Report.status == "completed",
+    )
+
+    total = db.execute(
+        select(func.count()).select_from(base_query.subquery())
+    ).scalar_one()
+
+    rows = db.execute(
+        base_query.order_by(Report.created_at.desc())
+        .offset((page - 1) * per_page)
+        .limit(per_page)
+    ).scalars().all()
+
+    items = []
+    for r in rows:
+        stock = db.execute(select(Stock).where(Stock.id == r.stock_id)).scalar_one_or_none()
+        items.append({
+            "id": str(r.id),
+            "stock_id": str(r.stock_id),
+            "stock_name": stock.name if stock else "Unknown",
+            "change_pct": r.trigger_change_pct if r.trigger_change_pct else 0.0,
+            "created_at": str(r.created_at) if r.created_at else "",
+        })
+
+    return {
+        "items": items,
+        "page": page,
+        "per_page": per_page,
+        "total": total,
+        "has_more": page * per_page < total,
+    }
+
+
+@router.get("/discussions")
+def get_profile_discussions(
+    page: int = Query(1, ge=1),
+    per_page: int = Query(10, ge=1, le=50),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Any:
+    """Get user's discussions (paginated)."""
+    try:
+        from app.models.discussion import Discussion
+
+        base_query = select(Discussion).where(Discussion.user_id == user.id)
+
+        total = db.execute(
+            select(func.count()).select_from(base_query.subquery())
+        ).scalar_one()
+
+        rows = db.execute(
+            base_query.order_by(Discussion.created_at.desc())
+            .offset((page - 1) * per_page)
+            .limit(per_page)
+        ).scalars().all()
+
+        items = []
+        for d in rows:
+            stock = db.execute(select(Stock).where(Stock.id == d.stock_id)).scalar_one_or_none()
+            items.append({
+                "id": str(d.id),
+                "stock_id": str(d.stock_id),
+                "stock_name": stock.name if stock else "Unknown",
+                "content": d.content[:200] if d.content else "",
+                "created_at": str(d.created_at) if d.created_at else "",
+            })
+
+        return {
+            "items": items,
+            "page": page,
+            "per_page": per_page,
+            "total": total,
+            "has_more": page * per_page < total,
+        }
+    except Exception:
+        return {
+            "items": [],
+            "page": page,
+            "per_page": per_page,
+            "total": 0,
+            "has_more": False,
+        }

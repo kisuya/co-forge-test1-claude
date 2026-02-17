@@ -139,3 +139,41 @@ export interface StockHistoryResponse {
   pagination: HistoryPagination;
   message: string | null;
 }
+
+export interface ProfileStats {
+  watchlist_count: number;
+  report_count: number;
+  discussion_count: number;
+}
+
+export interface ProfileResponse {
+  email: string;
+  nickname: string | null;
+  display_name: string;
+  created_at: string;
+  stats: ProfileStats | null;
+}
+
+export interface ProfileReportItem {
+  id: string;
+  stock_id: string;
+  stock_name: string;
+  change_pct: number;
+  created_at: string;
+}
+
+export interface ProfileDiscussionItem {
+  id: string;
+  stock_id: string;
+  stock_name: string;
+  content: string;
+  created_at: string;
+}
+
+export interface PaginatedResponse<T> {
+  items: T[];
+  page: number;
+  per_page: number;
+  total: number;
+  has_more: boolean;
+}
