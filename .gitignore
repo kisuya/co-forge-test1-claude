@@ -2,6 +2,16 @@
 docs/projects/current/
 .forge/orchestrate.pid
 
+# Playwright MCP logs
+.playwright-mcp/
+
+# Screenshots (e2e, retro)
+e2e-*.png
+retro-*.png
+
+# Test artifacts
+*.db
+
 # Common ignores
 node_modules/
 __pycache__/
