@@ -72,6 +72,24 @@ def summarize_news(
                 importance = "low"
             article.importance = importance
 
+            # Parse sentiment (added with analysis-008)
+            sentiment = result.get("sentiment", "neutral")
+            if sentiment not in ("positive", "negative", "neutral"):
+                sentiment = "neutral"
+            article.sentiment = sentiment
+
+            score = result.get("sentiment_score")
+            if score is not None:
+                try:
+                    score = float(score)
+                    score = max(-1.0, min(1.0, score))
+                except (TypeError, ValueError):
+                    score = 0.0
+            else:
+                # Derive score from sentiment label
+                score = {"positive": 0.5, "negative": -0.5, "neutral": 0.0}.get(sentiment, 0.0)
+            article.sentiment_score = score
+
         updated.append(article)
 
     db.commit()
@@ -81,21 +99,28 @@ def summarize_news(
 
 def _build_summarize_prompt(title: str) -> str:
     """Build prompt for single article summarization."""
-    return f"""다음 뉴스 제목을 분석하여 요약과 중요도를 분류해주세요.
+    return f"""다음 뉴스 제목을 분석하여 요약, 중요도, 감성을 분류해주세요.
 
 뉴스 제목: {title}
 
 다음 JSON 형식으로 응답해주세요:
-{{"summary": "50자 이내 1줄 요약", "importance": "high|medium|low"}}
+{{"summary": "50자 이내 1줄 요약", "importance": "high|medium|low", "sentiment": "positive|negative|neutral", "sentiment_score": 0.0}}
 
 중요도 기준:
 - high: 주가에 직접 영향 (실적발표, 대규모 계약, 규제 변경)
 - medium: 간접 영향 (업계 동향, 경쟁사 소식)
 - low: 낮은 관련성
 
+감성 기준:
+- positive: 주가에 긍정적 영향 (호재)
+- negative: 주가에 부정적 영향 (악재)
+- neutral: 중립적
+- sentiment_score: -1.0(매우 부정) ~ 1.0(매우 긍정) 실수
+
 규칙:
 - summary는 50자 이내
 - importance는 반드시 high, medium, low 중 하나
+- sentiment는 반드시 positive, negative, neutral 중 하나
 - 한국어로 작성"""
 
 

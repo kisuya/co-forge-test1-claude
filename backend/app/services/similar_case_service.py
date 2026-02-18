@@ -35,6 +35,14 @@ class SimilarCase:
 
 
 @dataclass
+class CaseAftermath:
+    """Price aftermath after a historical event."""
+    after_1w_pct: float | None  # 1-week return %
+    after_1m_pct: float | None  # 1-month return %
+    recovery_days: int | None  # days to recover to pre-event price, None if unrecovered
+
+
+@dataclass
 class SimilarCaseWithTrend:
     date: datetime
     change_pct: float
@@ -43,6 +51,7 @@ class SimilarCaseWithTrend:
     trend_1w: list[TrendPoint]
     trend_1m: list[TrendPoint]
     data_insufficient: bool = False
+    aftermath: CaseAftermath | None = None
 
 
 def _compute_similarity(
@@ -112,6 +121,58 @@ def _get_trend_after(
     return points
 
 
+def _compute_aftermath(
+    db: Session,
+    stock_id: uuid_mod.UUID,
+    event_date: datetime,
+    event_price: float,
+) -> CaseAftermath | None:
+    """Compute price aftermath after an event: 1w/1m returns and recovery days."""
+    # Get up to 30 trading days of snapshots after the event
+    stmt = (
+        select(PriceSnapshot)
+        .where(
+            PriceSnapshot.stock_id == stock_id,
+            PriceSnapshot.captured_at > event_date,
+        )
+        .order_by(PriceSnapshot.captured_at.asc())
+        .limit(30)
+    )
+    snapshots = list(db.execute(stmt).scalars().all())
+    if not snapshots or event_price <= 0:
+        return None
+
+    after_1w_pct: float | None = None
+    after_1m_pct: float | None = None
+    recovery_days: int | None = None
+
+    # Compute 1-week return (5th trading day or last available before that)
+    if len(snapshots) >= TREND_1W_DAYS:
+        w_price = float(snapshots[TREND_1W_DAYS - 1].price)
+        after_1w_pct = round((w_price - event_price) / event_price * 100, 2)
+    elif len(snapshots) > 0:
+        # Insufficient data for full week
+        after_1w_pct = None
+
+    # Compute 1-month return (20th trading day or last available before that)
+    if len(snapshots) >= TREND_1M_DAYS:
+        m_price = float(snapshots[TREND_1M_DAYS - 1].price)
+        after_1m_pct = round((m_price - event_price) / event_price * 100, 2)
+
+    # Find recovery day: first day price >= event_price (for drops) or <= event_price (for rises)
+    for i, snap in enumerate(snapshots):
+        snap_price = float(snap.price)
+        if snap_price >= event_price:
+            recovery_days = i + 1
+            break
+
+    return CaseAftermath(
+        after_1w_pct=after_1w_pct,
+        after_1m_pct=after_1m_pct,
+        recovery_days=recovery_days,
+    )
+
+
 def get_cases_with_trends(
     db: Session,
     stock_id: str,
@@ -119,7 +180,7 @@ def get_cases_with_trends(
     exclude_date: datetime | None = None,
     reference_volume: int = 0,
 ) -> list[SimilarCaseWithTrend]:
-    """Find similar cases and attach 1w/1m price trends."""
+    """Find similar cases and attach 1w/1m price trends + aftermath."""
     cases = find_similar_cases(
         db, stock_id, change_pct, exclude_date, reference_volume,
     )
@@ -129,6 +190,23 @@ def get_cases_with_trends(
         trend_1w = _get_trend_after(db, sid, c.date, TREND_1W_DAYS)
         trend_1m = _get_trend_after(db, sid, c.date, TREND_1M_DAYS)
         insufficient = len(trend_1w) < TREND_1W_DAYS
+
+        # Get the event price for aftermath calculation
+        event_snap = db.execute(
+            select(PriceSnapshot)
+            .where(
+                PriceSnapshot.stock_id == sid,
+                PriceSnapshot.captured_at == c.date,
+            )
+            .limit(1)
+        ).scalar_one_or_none()
+
+        aftermath = None
+        if event_snap:
+            aftermath = _compute_aftermath(
+                db, sid, c.date, float(event_snap.price),
+            )
+
         results.append(SimilarCaseWithTrend(
             date=c.date,
             change_pct=c.change_pct,
@@ -137,6 +215,7 @@ def get_cases_with_trends(
             trend_1w=trend_1w,
             trend_1m=trend_1m,
             data_insufficient=insufficient,
+            aftermath=aftermath,
         ))
     return results
 

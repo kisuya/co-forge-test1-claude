@@ -4,6 +4,7 @@ from app.models.market_briefing import MarketBriefing
 from app.models.news_article import NewsArticle
 from app.models.push_subscription import PushSubscription
 from app.models.report import PriceSnapshot, Report, ReportSource
+from app.models.shared_report import SharedReport
 from app.models.stock import Stock
 from app.models.user import User
 from app.models.watchlist import Watchlist
@@ -15,6 +16,7 @@ __all__ = [
     "PriceSnapshot",
     "Report",
     "ReportSource",
+    "SharedReport",
     "PushSubscription",
     "Discussion",
     "DiscussionComment",

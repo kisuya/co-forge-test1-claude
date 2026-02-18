@@ -1,13 +1,15 @@
-"""Collect general news for tracked stocks (news-001).
+"""Collect general news for tracked stocks (news-001 / pipe-004).
 
-This worker extends beyond the report-specific news_collector to gather
-general news for all stocks that have at least 1 user tracking them.
+This worker collects news for all stocks that have at least 1 user tracking them.
+Korean stocks: NAVER Search API.
+US stocks: NewsAPI.
 """
 from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
 
+import httpx
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -18,6 +20,9 @@ from app.models.watchlist import Watchlist
 
 logger = logging.getLogger(__name__)
 
+MAX_RETRIES = 1
+NAVER_API_BASE = "https://openapi.naver.com/v1/search/news.json"
+NEWSAPI_BASE = "https://newsapi.org/v2/everything"
 
 
 def _get_tracked_stocks(db: Session) -> list[Stock]:
@@ -35,27 +40,138 @@ def _get_tracked_stocks(db: Session) -> list[Stock]:
     )
 
 
-def _fetch_naver_news(stock_name: str, api_key: str = "") -> list[dict]:
+def _fetch_naver_news(
+    stock_name: str,
+    client_id: str = "",
+    client_secret: str = "",
+) -> list[dict]:
     """Fetch news from NAVER Search API for Korean stocks.
 
     Returns a list of dicts with title, url, source, published_at.
-    In production this would call the NAVER API. For now it returns
-    an empty list when no API key is configured.
     """
-    if not api_key:
+    if not client_id or not client_secret:
+        logger.warning("NAVER API credentials not set, skipping Korean news fetch")
         return []
-    # Production: call NAVER search API
-    # For now, return empty — the mock/test pattern allows injection
+
+    for attempt in range(MAX_RETRIES + 1):
+        try:
+            resp = httpx.get(
+                NAVER_API_BASE,
+                params={"query": stock_name, "display": 10, "sort": "date"},
+                headers={
+                    "X-Naver-Client-Id": client_id,
+                    "X-Naver-Client-Secret": client_secret,
+                },
+                timeout=10.0,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+
+            results = []
+            for item in data.get("items", []):
+                pub_date = None
+                date_str = item.get("pubDate", "")
+                if date_str:
+                    try:
+                        pub_date = datetime.strptime(date_str, "%a, %d %b %Y %H:%M:%S %z")
+                    except (ValueError, TypeError):
+                        pass
+
+                title = item.get("title", "")
+                title = title.replace("<b>", "").replace("</b>", "")
+                title = title.replace("&quot;", '"').replace("&amp;", "&")
+
+                results.append({
+                    "title": title,
+                    "url": item.get("originallink", item.get("link", "")),
+                    "source": "NAVER",
+                    "published_at": pub_date,
+                })
+
+            logger.info(
+                "NAVER news fetch for '%s': %d articles",
+                stock_name, len(results),
+            )
+            return results
+        except Exception as e:
+            if attempt < MAX_RETRIES:
+                logger.warning(
+                    "NAVER news retry for '%s' (attempt %d): %s",
+                    stock_name, attempt + 1, str(e),
+                )
+            else:
+                logger.error(
+                    "NAVER news failed for '%s' after %d attempts: %s",
+                    stock_name, MAX_RETRIES + 1, str(e),
+                )
+
     return []
 
 
-def _fetch_newsapi_articles(stock_name: str, api_key: str = "") -> list[dict]:
+def _fetch_newsapi_articles(
+    stock_name: str,
+    api_key: str = "",
+) -> list[dict]:
     """Fetch news from NewsAPI for US stocks.
 
     Returns a list of dicts with title, url, source, published_at.
+    Free plan: 100 requests/day.
     """
     if not api_key:
+        logger.warning("NEWS_API_KEY not set, skipping US news fetch")
         return []
+
+    for attempt in range(MAX_RETRIES + 1):
+        try:
+            resp = httpx.get(
+                NEWSAPI_BASE,
+                params={
+                    "q": stock_name,
+                    "sortBy": "publishedAt",
+                    "pageSize": 10,
+                    "apiKey": api_key,
+                },
+                timeout=10.0,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+
+            results = []
+            for article in data.get("articles", []):
+                pub_date = None
+                date_str = article.get("publishedAt", "")
+                if date_str:
+                    try:
+                        pub_date = datetime.fromisoformat(
+                            date_str.replace("Z", "+00:00")
+                        )
+                    except (ValueError, TypeError):
+                        pass
+
+                results.append({
+                    "title": article.get("title", ""),
+                    "url": article.get("url", ""),
+                    "source": article.get("source", {}).get("name", "NewsAPI"),
+                    "published_at": pub_date,
+                })
+
+            logger.info(
+                "NewsAPI fetch for '%s': %d articles",
+                stock_name, len(results),
+            )
+            return results
+        except Exception as e:
+            if attempt < MAX_RETRIES:
+                logger.warning(
+                    "NewsAPI retry for '%s' (attempt %d): %s",
+                    stock_name, attempt + 1, str(e),
+                )
+            else:
+                logger.error(
+                    "NewsAPI failed for '%s' after %d attempts: %s",
+                    stock_name, MAX_RETRIES + 1, str(e),
+                )
+
     return []
 
 
@@ -87,7 +203,11 @@ def collect_stock_news(
         elif fetch_us_fn and not is_korean:
             raw_articles = fetch_us_fn(stock.name)
         elif is_korean:
-            raw_articles = _fetch_naver_news(stock.name, settings.news_api_key)
+            raw_articles = _fetch_naver_news(
+                stock.name,
+                settings.naver_client_id,
+                settings.naver_client_secret,
+            )
         else:
             raw_articles = _fetch_newsapi_articles(stock.name, settings.news_api_key)
 
@@ -134,7 +254,7 @@ try:
     from app.workers.celery_app import celery
     from app.db.database import get_session_factory
 
-    @celery.task(name="collect_stock_news_task", bind=True)
+    @celery.task(name="collect_stock_news_task", bind=True, max_retries=0)
     def collect_stock_news_task(self) -> dict:
         """Celery periodic task: collect news for tracked stocks (1-hour interval)."""
         settings = get_settings()
@@ -142,9 +262,10 @@ try:
         session = factory()
         try:
             articles = collect_stock_news(session)
+            logger.info("Collected %d news articles via Celery", len(articles))
             return {"status": "ok", "articles_collected": len(articles)}
         except Exception as exc:
-            logger.exception("collect_stock_news_task failed: %s", exc)
+            logger.error("collect_stock_news_task failed: %s", str(exc))
             return {"status": "error", "error": str(exc)}
         finally:
             session.close()

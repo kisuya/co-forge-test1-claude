@@ -52,14 +52,52 @@ export interface AnalysisCause {
   impact: string;
 }
 
+export interface MultiLayerCause extends AnalysisCause {
+  impact_level?: "critical" | "significant" | "minor";
+}
+
+export interface OutlookItem {
+  summary: string;
+  sentiment: "bullish" | "bearish" | "neutral";
+  catalysts: string[];
+}
+
+export interface AnalysisOutlook {
+  short_term?: OutlookItem;
+  medium_term?: OutlookItem;
+}
+
+export interface SectorRelatedStock {
+  name: string;
+  code: string;
+  change_pct: number;
+}
+
+export interface SectorImpact {
+  sector: string;
+  related_stocks: SectorRelatedStock[];
+  correlation_note: string;
+}
+
 export interface AnalysisResult {
   summary: string;
   causes: AnalysisCause[];
+  direct_causes?: MultiLayerCause[];
+  indirect_causes?: MultiLayerCause[];
+  macro_factors?: MultiLayerCause[];
+  outlook?: AnalysisOutlook;
+  sector_impact?: SectorImpact;
 }
 
 export interface TrendPoint {
   day: number;
   change_pct: number;
+}
+
+export interface CaseAftermath {
+  after_1w_pct: number | null;
+  after_1m_pct: number | null;
+  recovery_days: number | null;
 }
 
 export interface SimilarCaseItem {
@@ -70,6 +108,7 @@ export interface SimilarCaseItem {
   trend_1w: TrendPoint[];
   trend_1m: TrendPoint[];
   data_insufficient: boolean;
+  aftermath?: CaseAftermath | null;
 }
 
 export interface CasesResponse {

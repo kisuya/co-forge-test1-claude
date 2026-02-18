@@ -52,6 +52,12 @@ class Settings:
     news_api_key: str = field(
         default_factory=lambda: os.getenv("NEWS_API_KEY", "")
     )
+    naver_client_id: str = field(
+        default_factory=lambda: os.getenv("NAVER_CLIENT_ID", "")
+    )
+    naver_client_secret: str = field(
+        default_factory=lambda: os.getenv("NAVER_CLIENT_SECRET", "")
+    )
     vapid_public_key: str = field(
         default_factory=lambda: os.getenv("VAPID_PUBLIC_KEY", "")
     )

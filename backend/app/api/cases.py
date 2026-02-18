@@ -23,6 +23,12 @@ class TrendPointResponse(BaseModel):
     change_pct: float
 
 
+class AftermathResponse(BaseModel):
+    after_1w_pct: float | None = None
+    after_1m_pct: float | None = None
+    recovery_days: int | None = None
+
+
 class CaseResponse(BaseModel):
     date: str
     change_pct: float
@@ -31,6 +37,7 @@ class CaseResponse(BaseModel):
     trend_1w: list[TrendPointResponse]
     trend_1m: list[TrendPointResponse]
     data_insufficient: bool
+    aftermath: AftermathResponse | None = None
 
 
 class CasesResponse(BaseModel):
@@ -86,6 +93,11 @@ def get_cases(
                     for t in c.trend_1m
                 ],
                 data_insufficient=c.data_insufficient,
+                aftermath=AftermathResponse(
+                    after_1w_pct=c.aftermath.after_1w_pct,
+                    after_1m_pct=c.aftermath.after_1m_pct,
+                    recovery_days=c.aftermath.recovery_days,
+                ) if c.aftermath else None,
             )
             for c in cases
         ],

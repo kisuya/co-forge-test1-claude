@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user, get_db
 from app.core.exceptions import raise_error
 from app.core.sanitize import strip_html_tags
+from app.models.news_article import NewsArticle
 from app.models.report import PriceSnapshot, Report
 from app.models.stock import Stock
 from app.models.user import User
@@ -292,4 +293,71 @@ def get_stock_history(
             page=page, per_page=per_page, total=total, has_more=has_more,
         ),
         message=message,
+    )
+
+
+class SentimentDayResponse(BaseModel):
+    date: str
+    avg_score: float
+    article_count: int
+
+
+class SentimentTrendResponse(BaseModel):
+    stock_id: str
+    days: list[SentimentDayResponse]
+    message: str | None = None
+
+
+@router.get("/{stock_id}/sentiment", response_model=SentimentTrendResponse)
+def get_sentiment_trend(
+    stock_id: str,
+    days: int = Query(30, ge=1, le=90),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Any:
+    """Get daily news sentiment trend for a stock over the last N days."""
+    from datetime import timedelta
+
+    try:
+        stock_uuid = uuid.UUID(stock_id)
+    except (ValueError, AttributeError):
+        raise_error(422, "Invalid stock ID format")
+
+    stock = db.execute(
+        select(Stock).where(Stock.id == stock_uuid)
+    ).scalar_one_or_none()
+    if stock is None:
+        raise_error(404, "Stock not found")
+
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+
+    # Query daily aggregates
+    rows = db.execute(
+        select(
+            func.date(NewsArticle.published_at).label("day"),
+            func.avg(NewsArticle.sentiment_score).label("avg_score"),
+            func.count(NewsArticle.id).label("cnt"),
+        )
+        .where(
+            NewsArticle.stock_id == stock_uuid,
+            NewsArticle.published_at >= cutoff,
+            NewsArticle.sentiment_score.isnot(None),
+        )
+        .group_by(func.date(NewsArticle.published_at))
+        .order_by(func.date(NewsArticle.published_at).asc())
+    ).all()
+
+    result_days = []
+    for row in rows:
+        if row.cnt >= 1:  # include days with at least 1 article
+            result_days.append(SentimentDayResponse(
+                date=str(row.day),
+                avg_score=round(float(row.avg_score), 3),
+                article_count=int(row.cnt),
+            ))
+
+    return SentimentTrendResponse(
+        stock_id=stock_id,
+        days=result_days,
+        message="감성 데이터가 충분하지 않습니다" if not result_days else None,
     )

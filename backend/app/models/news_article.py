@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Index, String, Text, func
+from sqlalchemy import DateTime, Float, ForeignKey, Index, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -30,6 +30,8 @@ class NewsArticle(Base):
     )
     content_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     importance: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    sentiment: Mapped[str | None] = mapped_column(String(10), nullable=True)  # positive/negative/neutral
+    sentiment_score: Mapped[float | None] = mapped_column(Float, nullable=True)  # -1.0 to 1.0
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

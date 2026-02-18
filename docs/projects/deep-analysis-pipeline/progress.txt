@@ -1,0 +1,65 @@
+Project: project-004 - deep-analysis-pipeline
+Started: 2026-02-18
+Status: Not started
+Agent: (to be assigned)
+
+Features: 16 pending
+Previous: docs/projects/history-sharing-community/retrospective.md
+
+No progress yet. Run init.sh to begin.
+
+Session 1 (2026-02-18):
+Summary: fix-001~004 구현 (레거시 헤더 제거, Alembic 마이그레이션, 시드 데이터 스크립트, DB 커넥션 풀). 기반 정비 완료. 다음은 pipe 도메인(pipe-001~).
+
+Session 2 (2026-02-18):
+
+---
+Session: 1 (2026-02-18 02:24)
+Summary: pipe-001~005 구현 (KRX 실시세 수집, 미국 시세 수집, DART 공시 수집, 뉴스 수집, 파이프라인 모니터링 API). pipe 도메인 완료 (5/5). 총 테스트 668+2+19+957=1646 통과. 다음은 analysis 도메인(analysis-004~).
+Features this session: fix-001, fix-002, fix-003, fix-004, pipe-001, pipe-002, pipe-003, pipe-004, pipe-005
+Progress: 9/16 done (7 pending, 0 blocked)
+Tests: failures detected
+Commits:
+13271da Retrospective: history-sharing-community
+<!-- done: fix-001, fix-002, fix-003, fix-004, pipe-001, pipe-002, pipe-003, pipe-004, pipe-005 -->
+
+---
+Session: 2 (2026-02-18)
+Summary: analysis-004~009 구현 (다층 원인 분석 프롬프트, 단기/중기 전망, 섹터 연쇄 영향, 유사 케이스 이후 추이, 뉴스 감성 트렌드, 리포트 UI 고도화). analysis 도메인 완료 (6/6). 다음은 pipe-006 (급변동 감지→리포트 생성 e2e 파이프라인).
+Features this session: analysis-004, analysis-005, analysis-006, analysis-007, analysis-008, analysis-009
+Progress: 15/16 done (1 pending: pipe-006)
+Tests: 772 passed, 1 pre-existing failure (test_features_json_complete expects 72+ features from project-003)
+Key changes:
+- backend/app/clients/llm_client.py: MultiLayerCause, OutlookResult, MultiLayerAnalysisResult, build_multilayer_prompt, parse_multilayer_response
+- backend/app/services/analysis_service.py: Multi-layer cause storage, outlook/sector/aftermath in JSONB
+- backend/app/services/sector_service.py: NEW - get_sector_impact() for same-sector correlation
+- backend/app/services/similar_case_service.py: CaseAftermath, _compute_aftermath()
+- backend/app/models/news_article.py: sentiment + sentiment_score columns
+- backend/app/workers/news_summarizer.py: sentiment parsing from AI response
+- backend/app/api/stocks.py: GET /{stock_id}/sentiment endpoint
+- backend/app/api/cases.py: AftermathResponse in CaseResponse
+- frontend/src/components/ReportView.tsx: Multi-layer cause tabs, impact_level badges, graceful fallback
+- frontend/src/components/SentimentTrend.tsx: NEW - SVG sentiment chart
+- frontend/src/components/SimilarCases.tsx: Aftermath rendering
+- frontend/src/types/index.ts: MultiLayerCause, OutlookItem, SectorImpact, CaseAftermath types
+<!-- done: analysis-004, analysis-005, analysis-006, analysis-007, analysis-008, analysis-009 -->
+
+---
+Session: 3 (2026-02-18)
+Features this session: pipe-006
+Progress: 16/16 done (0 pending) — PROJECT COMPLETE
+Tests: 789 passed, 1 pre-existing failure (test_features_json_complete expects 72+ features from project-003)
+Key changes:
+- backend/app/workers/e2e_pipeline.py: NEW - PipelineResult, run_pipeline(), run_e2e_pipeline_task
+- backend/app/workers/celery_app.py: Added run-e2e-pipeline schedule (30min during KRX hours)
+<!-- done: pipe-006 -->
+
+---
+Session: 4 (2026-02-18 10:27)
+Summary: pipe-006 구현 (급변동 감지→리포트 생성 e2e 파이프라인). 5단계 파이프라인 (가격수집→급변동감지→뉴스수집→AI분석→알림) 구현. 에러 격리, 실행시간 추적, Celery Beat 스케줄 등록 완료. **프로젝트 완료: 16/16 features done.**
+Features this session: fix-001, fix-002, fix-003, fix-004, pipe-001, pipe-002, pipe-003, pipe-004, pipe-005, analysis-004, analysis-005, analysis-006, analysis-007, analysis-008, analysis-009
+Progress: 16/16 done (0 pending, 0 blocked)
+Tests: failures detected
+Commits:
+13271da Retrospective: history-sharing-community
+<!-- done: fix-001, fix-002, fix-003, fix-004, pipe-001, pipe-002, pipe-003, pipe-004, pipe-005, analysis-004, analysis-005, analysis-006, analysis-007, analysis-008, analysis-009, pipe-006 -->

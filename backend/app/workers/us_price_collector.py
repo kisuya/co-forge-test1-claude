@@ -1,6 +1,7 @@
 """Service and Celery task for US stock price collection."""
 from __future__ import annotations
 
+import json
 import logging
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -20,6 +21,7 @@ MARKET_OPEN_HOUR = 9
 MARKET_OPEN_MIN = 30
 MARKET_CLOSE_HOUR = 16
 MARKET_CLOSE_MIN = 0
+PRICE_CACHE_TTL = 300  # 5 minutes
 
 
 def is_us_market_open() -> bool:
@@ -34,6 +36,21 @@ def is_us_market_open() -> bool:
         hour=MARKET_CLOSE_HOUR, minute=MARKET_CLOSE_MIN, second=0, microsecond=0,
     )
     return open_time <= now <= close_time
+
+
+def _refresh_price_cache(stock_id: str, price_data: dict) -> None:
+    """Update Redis cache for a stock price after collection."""
+    try:
+        from app.core.cache import get_redis_client
+        client = get_redis_client()
+        if client is not None:
+            client.setex(
+                f"price:{stock_id}",
+                PRICE_CACHE_TTL,
+                json.dumps(price_data, default=str),
+            )
+    except Exception:
+        logger.warning("Failed to refresh price cache for stock %s", stock_id)
 
 
 def collect_us_prices(db: Session, fetch_fn: object | None = None) -> int:
@@ -73,9 +90,17 @@ def collect_us_prices(db: Session, fetch_fn: object | None = None) -> int:
             volume=p.volume,
         )
         db.add(snapshot)
+
+        _refresh_price_cache(str(stock.id), {
+            "stock_id": str(stock.id),
+            "price": str(p.price),
+            "change_pct": p.change_pct,
+            "volume": p.volume,
+        })
         count += 1
 
     db.commit()
+    logger.info("Collected %d US price snapshots", count)
     return count
 
 
@@ -97,8 +122,11 @@ try:
         session = factory()
         try:
             count = collect_us_prices(session)
-            logger.info("Collected %d US price snapshots", count)
+            logger.info("Collected %d US price snapshots via Celery", count)
             return {"status": "ok", "count": count}
+        except Exception as e:
+            logger.error("US price collection task failed: %s", str(e))
+            return {"status": "error", "error": str(e)}
         finally:
             session.close()
 

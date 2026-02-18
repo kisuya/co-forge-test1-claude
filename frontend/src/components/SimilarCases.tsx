@@ -111,7 +111,27 @@ export default function SimilarCases({ reportId }: SimilarCasesProps) {
                         </span>
                       )}
                     </div>
-                    {c.data_insufficient && (
+                    {c.aftermath && (
+                      <div className="mt-2 pt-2 border-t border-gray-100 text-xs text-gray-600" data-testid="case-aftermath">
+                        <span className="font-medium text-gray-500">이후 추이: </span>
+                        {c.aftermath.after_1w_pct !== null && (
+                          <span className="mr-3">
+                            1주 후 <span className={changeColor(c.aftermath.after_1w_pct)}>{formatPct(c.aftermath.after_1w_pct)}</span>
+                          </span>
+                        )}
+                        {c.aftermath.after_1m_pct !== null && (
+                          <span className="mr-3">
+                            1개월 후 <span className={changeColor(c.aftermath.after_1m_pct)}>{formatPct(c.aftermath.after_1m_pct)}</span>
+                          </span>
+                        )}
+                        {c.aftermath.recovery_days !== null && (
+                          <span className="text-gray-500">
+                            회복까지 {c.aftermath.recovery_days}일 소요
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    {c.data_insufficient && !c.aftermath && (
                       <p className="text-xs text-gray-400 mt-1">
                         추이 데이터 부족
                       </p>

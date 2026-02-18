@@ -6,6 +6,7 @@ import { isLoggedIn } from "@/lib/auth";
 import { stocksApi } from "@/lib/queries";
 import type { StockDetail, StockHistoryResponse } from "@/types";
 import EventTimeline from "@/components/EventTimeline";
+import SentimentTrend from "@/components/SentimentTrend";
 import DiscussionSection from "@/components/DiscussionSection";
 
 const MARKET_BADGE: Record<string, string> = {
@@ -181,6 +182,9 @@ export default function StockDetailPage() {
             </div>
           </div>
         )}
+
+        {/* Sentiment trend chart - analysis-008 */}
+        <SentimentTrend stockId={params.stockId} />
 
         {/* Event timeline section - implemented in history-003 */}
         {history && (

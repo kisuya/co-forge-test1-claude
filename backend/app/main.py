@@ -29,9 +29,10 @@ from app.api.share import router as share_router
 from app.api.stocks import router as stocks_router
 from app.api.trending import router as trending_router
 from app.api.calendar import router as calendar_router
+from app.api.pipeline_status import router as pipeline_status_router
 from app.api.watchlist import router as watchlist_router
 from app.config import get_settings
-from app.db.database import create_tables, get_session_factory
+from app.db.database import check_db_connection, create_tables, dispose_all_engines, get_session_factory
 from app.models.user import User
 from app.services.stock_service import seed_stocks, seed_us_stocks
 
@@ -83,6 +84,7 @@ def create_app() -> FastAPI:
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         _run_seed(settings.database_url)
         yield
+        dispose_all_engines()
 
     app = FastAPI(
         title="oh-my-stock",
@@ -171,10 +173,15 @@ def create_app() -> FastAPI:
     app.include_router(news_router)
     app.include_router(trending_router)
     app.include_router(calendar_router)
+    app.include_router(pipeline_status_router)
 
     @app.get("/health")
-    async def health() -> dict[str, str]:
-        return {"status": "ok"}
+    async def health(detail: bool = False) -> dict[str, str]:
+        result: dict[str, str] = {"status": "ok"}
+        if detail:
+            db_ok = check_db_connection(settings.database_url)
+            result["database"] = "up" if db_ok else "down"
+        return result
 
     @app.get("/api/me")
     def me(user: User = Depends(get_current_user)) -> dict[str, str]:
